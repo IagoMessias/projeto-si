@@ -16,7 +16,7 @@ import auth
 import cripto as c
 import database
 
-PASTA_CHAVES = Path(__file__).parent / "chaves"
+PASTA_CHAVES = Path(__file__).parent / "chaves_demo"
 MENSAGEM = "Transferir R$ 100,00 para a conta 1234-5 (dados fictícios de teste)".encode("utf-8")
 
 
