@@ -1,10 +1,9 @@
-"""
-Gera um pacote protegido em arquivo para você ALTERAR À MÃO e ver o sistema reagir.
+"""Gera um pacote de teste para alteração manual e verificação.
 
 Uso:
-  py teste_manual.py gerar                   cria chaves_teste/ e chaves_teste/pacote.json
-  py teste_manual.py abrir                   verifica e abre o pacote
-  py teste_manual.py abrir --outro-destino   tenta abrir com a chave RSA de outro destinatário
+  py testes_erros.py gerar
+  py testes_erros.py abrir
+  py testes_erros.py abrir --outro-destino
 
 Senha das chaves de teste: variável TESTE_SENHA (padrão: senha-de-teste-manual).
 """
@@ -25,6 +24,7 @@ def senha() -> bytes:
 
 
 def gerar() -> None:
+    PASTA.mkdir(parents=True, exist_ok=True)
     rsa_destino = c.gerar_chave_rsa()
     ed_remetente = c.gerar_chave_ed25519()
     c.salvar_chave_privada(rsa_destino, PASTA / "destino_rsa_privada.pem", senha())
@@ -33,7 +33,7 @@ def gerar() -> None:
     c.salvar_chave_publica(ed_remetente, PASTA / "remetente_ed_publica.pem")
     PACOTE.write_bytes(c.proteger(MENSAGEM, rsa_destino.public_key(), ed_remetente))
     print(f"Pacote gerado: {PACOTE}")
-    print("Agora edite o arquivo à mão (Bloco de Notas), salve e rode: py teste_manual.py abrir")
+    print("Edite pacote.json e depois execute: py testes_erros.py abrir")
 
 
 def abrir(outro_destino: bool) -> None:
@@ -41,20 +41,20 @@ def abrir(outro_destino: bool) -> None:
         pacote = PACOTE.read_bytes()
         pub_ed = c.carregar_chave_publica(PASTA / "remetente_ed_publica.pem")
         if outro_destino:
-            priv_rsa = c.gerar_chave_rsa()  # chave de um destinatário diferente
+            priv_rsa = c.gerar_chave_rsa()
             print("(usando uma chave RSA de OUTRO destinatário)")
         else:
             priv_rsa = c.carregar_chave_privada(PASTA / "destino_rsa_privada.pem", senha())
     except FileNotFoundError as erro:
-        print(f"[ERRO] Arquivo não encontrado: {erro.filename}. Rode primeiro: py teste_manual.py gerar")
+        print(f"[ERRO] Arquivo não encontrado: {erro.filename}. Rode primeiro: py testes_erros.py gerar")
         return
     except ValueError:
-        print("[ERRO] Não foi possível carregar a chave privada: senha incorreta ou arquivo corrompido.")
+        print("[ERRO] Senha incorreta ou arquivo de chave corrompido.")
         return
 
     try:
         texto = c.abrir(pacote, priv_rsa, pub_ed)
-        print(f"[ACEITO]    {texto.decode('utf-8')}")
+        print(f"[ACEITO] {texto.decode('utf-8')}")
     except c.ErroVerificacao as erro:
         print(f"[REJEITADO] {erro}")
 
