@@ -1,0 +1,49 @@
+EVIDENCIA - MELHORIA: MITIGACAO DE ENUMERACAO POR TEMPO (ENTREGA 2)
+Data: 17/11/2026
+
+1) SUITE COMPLETA DE TESTES (inclui novo teste da mitigacao)
+test_auth.py::test_cadastro_gera_hash_argon2id PASSED                    [  2%]
+test_auth.py::test_banco_nao_armazena_senha_em_texto_puro PASSED         [  5%]
+test_auth.py::test_login_com_senha_correta PASSED                        [  8%]
+test_auth.py::test_login_com_senha_incorreta PASSED                      [ 11%]
+test_auth.py::test_login_com_usuario_inexistente PASSED                  [ 14%]
+test_auth.py::test_usuario_inexistente_executa_verificacao_argon2id PASSED [ 17%]
+test_auth.py::test_usuario_duplicado_e_rejeitado PASSED                  [ 20%]
+test_auth.py::test_usuario_duplicado_ignora_diferenca_de_maiusculas PASSED [ 23%]
+test_auth.py::test_mesma_senha_gera_hashes_diferentes_por_causa_do_salt PASSED [ 26%]
+test_auth.py::test_senha_com_menos_de_oito_caracteres_e_rejeitada PASSED [ 29%]
+test_auth.py::test_usuario_curto_e_rejeitado PASSED                      [ 32%]
+test_auth.py::test_usuario_com_espacos_e_rejeitado PASSED                [ 35%]
+test_auth.py::test_hash_adulterado_e_rejeitado PASSED                    [ 38%]
+test_cripto.py::test_parametros_minimos PASSED                           [ 41%]
+test_cripto.py::test_ida_e_volta PASSED                                  [ 44%]
+test_cripto.py::test_mensagem_vazia_e_grande PASSED                      [ 47%]
+test_cripto.py::test_texto_cifrado_nao_contem_texto_claro PASSED         [ 50%]
+test_cripto.py::test_nonce_e_chave_diferentes_a_cada_envio PASSED        [ 52%]
+test_cripto.py::test_persistencia_de_chaves_em_pem PASSED                [ 55%]
+test_cripto.py::test_adulteracao_de_campo_e_rejeitada[texto_cifrado] PASSED [ 58%]
+test_cripto.py::test_adulteracao_de_campo_e_rejeitada[chave_cifrada] PASSED [ 61%]
+test_cripto.py::test_adulteracao_de_campo_e_rejeitada[nonce] PASSED      [ 64%]
+test_cripto.py::test_adulteracao_do_cabecalho_e_rejeitada PASSED         [ 67%]
+test_cripto.py::test_gcm_detecta_adulteracao_mesmo_sem_assinatura PASSED [ 70%]
+test_cripto.py::test_cabecalho_alterado_falha_no_gcm_por_causa_do_aad PASSED [ 73%]
+test_cripto.py::test_assinatura_de_atacante_e_rejeitada PASSED           [ 76%]
+test_cripto.py::test_forja_so_com_chave_publica_nao_passa_no_fluxo_completo PASSED [ 79%]
+test_cripto.py::test_destinatario_errado_nao_decifra PASSED              [ 82%]
+test_cripto.py::test_assinatura_nao_vale_para_outro_envelope PASSED      [ 85%]
+test_cripto.py::test_pacote_malformado[] PASSED                          [ 88%]
+test_cripto.py::test_pacote_malformado[nao e json] PASSED                [ 91%]
+test_cripto.py::test_pacote_malformado[{}] PASSED                        [ 94%]
+test_cripto.py::test_pacote_malformado[{"envelope": 1, "assinatura": 2}] PASSED [ 97%]
+test_cripto.py::test_senha_errada_nao_carrega_chave_privada PASSED       [100%]
+============================== 34 passed in 1.07s ==============================
+
+2) MEDICAO DE TEMPO DE RESPOSTA (7 amostras, mediana em ms)
+Usuario existente + senha errada : mediana=32.6ms (min 32.0, max 33.8)
+Usuario inexistente              : mediana=32.5ms (min 32.4, max 36.8)
+Diferenca entre medianas: 0.1ms -> tempos semelhantes (mitigacao eficaz)
+
+3) RESULTADO LOGICO (sem vazamento por mensagem de erro)
+login correto           : True
+senha errada            : False
+usuario inexistente     : False

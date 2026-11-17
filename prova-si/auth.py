@@ -27,6 +27,13 @@ _HASHER = PasswordHasher(
     type=Type.ID,
 )
 
+# Hash fictício (de uma senha aleatória que não é usada em lugar nenhum),
+# calculado uma única vez na importação do módulo. É verificado quando o
+# usuário não existe, para que o custo de Argon2id ocorra nos dois casos e
+# a diferença de tempo de resposta não revele se a conta existe
+# (mitigação de enumeração de usuários por análise de tempo).
+_HASH_DUMMY = _HASHER.hash("senha-ficticia-para-mitigacao-de-timing")
+
 
 class DadosCadastroInvalidos(ValueError):
     """Dados de cadastro não atendem às validações da aplicação."""
@@ -82,5 +89,9 @@ def autenticar_usuario(caminho_db: str, usuario: str, senha: str) -> bool:
     database.inicializar_banco(caminho_db)
     senha_hash = database.obter_hash_senha(caminho_db, usuario)
     if senha_hash is None:
+        # Usuário inexistente: executa a mesma verificação Argon2id (contra o
+        # hash fictício) para manter o tempo de resposta semelhante ao de um
+        # usuário existente com senha errada. O resultado é sempre False.
+        verificar_senha(senha, _HASH_DUMMY)
         return False
     return verificar_senha(senha, senha_hash)

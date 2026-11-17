@@ -44,6 +44,26 @@ def test_login_com_usuario_inexistente(banco):
     assert auth.autenticar_usuario(banco, "nao-existe", "senha-qualquer") is False
 
 
+def test_usuario_inexistente_executa_verificacao_argon2id(banco, monkeypatch):
+    """Mitigação de enumeração: mesmo com usuário inexistente, a aplicação
+    executa uma verificação Argon2id (contra um hash fictício), para que o
+    tempo de resposta não revele se a conta existe."""
+    chamadas = []
+    verificar_original = auth.verificar_senha
+
+    def registrar_verificacao(senha, senha_hash):
+        chamadas.append(senha_hash)
+        return verificar_original(senha, senha_hash)
+
+    monkeypatch.setattr(auth, "verificar_senha", registrar_verificacao)
+
+    assert auth.autenticar_usuario(banco, "nao-existe", "senha-qualquer") is False
+    # A verificação deve ter ocorrido exatamente uma vez, contra o hash dummy.
+    assert len(chamadas) == 1
+    assert chamadas[0] == auth._HASH_DUMMY
+    assert chamadas[0].startswith("$argon2id$")
+
+
 def test_usuario_duplicado_e_rejeitado(banco):
     auth.cadastrar_usuario(banco, "aluno", "senha-correta-123")
     with pytest.raises(database.UsuarioJaExisteError):

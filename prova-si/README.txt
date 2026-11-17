@@ -80,8 +80,9 @@ TESTES
 SEGURANÇA E LIMITES
 - Não armazena senhas em texto puro. O hash não é criptografia e não pode ser revertido para recuperar a senha original.
 - A comparação é realizada por PasswordHasher.verify() da biblioteca argon2-cffi; não há comparação manual de hashes.
-- A aplicação é didática e local. Não implementa limitação de tentativas, recuperação de senha, MFA, sessão web, proteção contra enumeração por tempo ou controle de acesso multiusuário.
-- A mensagem de erro de login é genérica, mas isso não substitui controles de taxa de tentativas e mitigação de diferenças de tempo.
+- A aplicação é didática e local. Não implementa limitação de tentativas, recuperação de senha, MFA, sessão web ou controle de acesso multiusuário.
+- Enumeração por tempo (mitigada): quando o usuário não existe, a aplicação executa uma verificação Argon2id contra um hash fictício (_HASH_DUMMY), para que o tempo de resposta seja semelhante ao de um usuário existente com senha errada. Isso reduz (não elimina) o vazamento de informação por cronometragem; controles de taxa de tentativas continuam recomendados.
+- A mensagem de erro de login é genérica, mas isso não substitui controles de taxa de tentativas.
 - Sem certificados/PKI: as chaves públicas da Entrega 1 são trocadas diretamente.
 - Sem proteção contra reenvio de um pacote legítimo (replay).
 - Chaves privadas da Entrega 1 ficam em arquivos locais protegidos por senha; em produção, usar cofre de segredos e política de rotação.
