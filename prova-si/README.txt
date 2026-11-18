@@ -59,8 +59,14 @@ COMO EXECUTAR
 Testes automatizados:
   py -m pytest -v
 
-Demonstração integrada das Entregas 1 e 2:
+Demonstração integrada das Entregas 1 e 2 (sem login, banco temporário):
   py demo.py
+
+Demonstração da Entrega 2 com login obrigatório (mesmo usuarios.db do app.py):
+  py demo_e2.py
+  - Exige usuário e senha cadastrados pelo app.py (opção 1).
+  - Login correto: executa as demonstrações com mensagens [ACEITO]/[REJEITADO].
+  - Login incorreto: mostra [REJEITADO] e encerra sem executar a demonstração.
 
 Aplicação de cadastro e login:
   py app.py
