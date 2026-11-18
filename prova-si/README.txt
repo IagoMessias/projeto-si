@@ -109,3 +109,6 @@ REFERÊNCIAS TÉCNICAS
 - OWASP Password Storage Cheat Sheet.
 - Documentação oficial argon2-cffi.
 - Documentação oficial Python sqlite3.
+
+Link GitHub:
+https://github.com/IagoMessias/projeto-si
