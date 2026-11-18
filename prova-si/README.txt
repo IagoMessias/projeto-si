@@ -76,7 +76,11 @@ Demonstração manual de adulteração da Entrega 1:
   py testes_erros.py abrir
   py testes_erros.py abrir --outro-destino
 
-Na demonstração de criptografia, a senha protege os arquivos PEM gerados na pasta chaves_demo/. Essa pasta é separada de chaves/ para não sobrescrever arquivos de chave que você já tenha da Entrega 1. É possível definir ENTREGA1_SENHA na sessão do PowerShell para evitar a pergunta interativa. Não coloque senhas reais em arquivos ou no Git.
+Na demonstração de criptografia, a senha protege os arquivos PEM gerados na pasta chaves_demo/. Essa pasta é separada de chaves/ para não sobrescrever arquivos de chave que você já tenha da Entrega 1.
+
+No primeiro uso do demo.py ou do demo_e2.py, se as chaves ainda não existirem, o programa solicita uma senha e sua confirmação para proteger as chaves privadas. O demo_e2.py reutiliza as chaves existentes e solicita a senha delas. Se a senha estiver incorreta ou o conjunto de arquivos estiver incompleto, a demonstração é interrompida e os arquivos existentes não são sobrescritos. Não existe senha fixa no código.
+
+Opcionalmente, ENTREGA1_SENHA pode ser definida na sessão atual do PowerShell para evitar a pergunta interativa. Use essa opção somente em ambiente confiável, não coloque o valor em scripts ou no Git e remova a variável ao terminar com: Remove-Item Env:ENTREGA1_SENHA. Não coloque senhas reais em arquivos ou no Git.
 
 TESTES
 - test_cripto.py: testes positivos e negativos da criptografia híbrida e assinatura digital da Entrega 1.
