@@ -65,19 +65,46 @@ def autenticar() -> bool:
     return False
 
 
+def obter_senha_chaves(nova: bool) -> bytes:
+    """Obtém a senha das chaves sem armazená-la no código."""
+    senha_ambiente = os.environ.get("ENTREGA1_SENHA")
+    if senha_ambiente is not None:
+        if not senha_ambiente:
+            raise RuntimeError("A variável ENTREGA1_SENHA está vazia.")
+        return senha_ambiente.encode("utf-8")
+
+    if not nova:
+        senha = getpass("Senha das chaves privadas existentes: ")
+        if not senha:
+            raise RuntimeError("A senha das chaves não pode estar vazia.")
+        return senha.encode("utf-8")
+
+    while True:
+        senha = getpass("Defina uma senha para proteger as novas chaves privadas: ")
+        if not senha:
+            print("A senha não pode estar vazia.")
+            continue
+
+        confirmacao = getpass("Confirme a senha: ")
+        if senha != confirmacao:
+            print("As senhas não coincidem. Tente novamente.")
+            continue
+
+        return senha.encode("utf-8")
+
+
 def carregar_ou_gerar_chaves():
-    """Reaproveita as chaves do demo.py se existirem e a senha for conhecida;
-    caso contrário, gera novas protegidas por senha temporária interna."""
+    """Reaproveita chaves existentes ou gera um novo par protegido por senha."""
     arquivos = {
         "priv_rsa": PASTA_CHAVES / "destino_rsa_privada.pem",
         "pub_rsa": PASTA_CHAVES / "destino_rsa_publica.pem",
         "priv_ed": PASTA_CHAVES / "remetente_ed25519_privada.pem",
         "pub_ed": PASTA_CHAVES / "remetente_ed25519_publica.pem",
     }
-    if all(caminho.exists() for caminho in arquivos.values()):
-        senha_chaves = (os.environ.get("ENTREGA1_SENHA") or getpass(
-            "Senha das chaves privadas já geradas pelo demo.py: "
-        )).encode("utf-8")
+    existentes = [caminho.exists() for caminho in arquivos.values()]
+
+    if all(existentes):
+        senha_chaves = obter_senha_chaves(nova=False)
         try:
             return (
                 c.carregar_chave_privada(arquivos["priv_rsa"], senha_chaves),
@@ -85,17 +112,28 @@ def carregar_ou_gerar_chaves():
                 c.carregar_chave_privada(arquivos["priv_ed"], senha_chaves),
                 c.carregar_chave_publica(arquivos["pub_ed"]),
             )
-        except Exception:
-            print("[AVISO] Não foi possível abrir as chaves existentes; gerando novas.")
+        except Exception as erro:
+            raise RuntimeError(
+                "Não foi possível carregar as chaves existentes. "
+                "Confira a senha e a integridade dos arquivos. "
+                "As chaves não foram sobrescritas."
+            ) from erro
 
-    senha_chaves = b"senha-temporaria-demo-e2"
+    if any(existentes):
+        raise RuntimeError(
+            f"O conjunto de chaves em {PASTA_CHAVES} está incompleto. "
+            "Faça uma cópia de segurança e confira os arquivos antes de gerar novas chaves. "
+            "Os arquivos existentes não foram sobrescritos."
+        )
+
+    senha_chaves = obter_senha_chaves(nova=True)
     rsa_destino = c.gerar_chave_rsa()
     ed_remetente = c.gerar_chave_ed25519()
     c.salvar_chave_privada(rsa_destino, arquivos["priv_rsa"], senha_chaves)
     c.salvar_chave_publica(rsa_destino, arquivos["pub_rsa"])
     c.salvar_chave_privada(ed_remetente, arquivos["priv_ed"], senha_chaves)
     c.salvar_chave_publica(ed_remetente, arquivos["pub_ed"])
-    print(f"Chaves novas salvas em: {PASTA_CHAVES} (privadas protegidas por senha temporária)")
+    print(f"Chaves novas salvas em: {PASTA_CHAVES} (privadas protegidas pela senha escolhida).")
     return (
         c.carregar_chave_privada(arquivos["priv_rsa"], senha_chaves),
         c.carregar_chave_publica(arquivos["pub_rsa"]),
@@ -156,7 +194,11 @@ def main() -> None:
     if not autenticar():
         titulo("DEMONSTRAÇÃO ENCERRADA: LOGIN REJEITADO")
         return
-    demonstrar_criptografia()
+    try:
+        demonstrar_criptografia()
+    except RuntimeError as erro:
+        print(f"[ERRO] {erro}")
+        return
     demonstrar_autenticacao()
     titulo("DEMONSTRAÇÃO DA ENTREGA 2 CONCLUÍDA (LOGIN ACEITO)")
 
