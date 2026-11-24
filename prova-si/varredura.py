@@ -246,7 +246,10 @@ def executar_nmap(alvo: str, escopo: Escopo, portas: str | None = None, udp: boo
     ip = validar_alvo(alvo, escopo)
     if not _ROTULO.match(rotulo):
         raise ErroEscopo("Rótulo inválido: use letras minúsculas, números, hífen ou sublinhado.")
-    portas_efetivas = validar_portas_no_escopo(portas or escopo.portas, escopo.portas)
+    if udp and portas is None:
+        raise ErroEscopo("A varredura UDP exige --portas explícito para evitar uma varredura ampla e demorada.")
+    portas_solicitadas = escopo.portas if portas is None else portas
+    portas_efetivas = validar_portas_no_escopo(portas_solicitadas, escopo.portas)
     nmap = localizar_nmap()
     pasta = Path(pasta_saida)
     pasta.mkdir(parents=True, exist_ok=True)
