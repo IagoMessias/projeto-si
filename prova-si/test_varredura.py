@@ -352,6 +352,7 @@ def test_varredura_real_em_loopback(tmp_path):
             json.dumps({
                 **ESCOPO_VALIDO,
                 "redes_autorizadas": ["127.0.0.0/24"],
+                "portas": str(porta),
                 "servicos_necessarios": [
                     {"porta": porta, "protocolo": "tcp", "justificativa": "teste"}
                 ],
