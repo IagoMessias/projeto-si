@@ -1,0 +1,115 @@
+LABORATÓRIO DA ENTREGA 3 - PASSO A PASSO
+Projeto Integrador - Segurança da Informação - Unit
+
+REGRA DE OURO
+Faça a varredura somente na VM própria do laboratório, conectada à rede Host-only e registrada em escopo_lab.json. Não varra redes da faculdade, de casa ou da Internet. A validação do programa complementa, mas não substitui, autorização válida.
+
+1. FERRAMENTAS NO WINDOWS
+No PowerShell:
+  winget install Insecure.Nmap
+  winget install Oracle.VirtualBox
+Reabra o PowerShell e teste:
+  nmap --version
+
+2. CRIAR A VM NO VIRTUALBOX
+- ISO: Ubuntu Server LTS. Sugestão: 2 GB RAM, 1-2 CPUs e 15 GB de disco.
+- Adaptador 1: NAT, para instalar pacotes.
+- Adaptador 2: Host-only, para a comunicação entre Windows e VM.
+- Na instalação, selecione Install OpenSSH server e crie o usuário aluno.
+- Antes de alterar configurações, crie um snapshot chamado estado-limpo.
+
+3. SERVIÇOS DE TESTE NA VM
+  sudo apt update
+  sudo apt install -y apache2 vsftpd
+Apache (80/tcp) e SSH (22/tcp) serão serviços necessários. vsftpd (21/tcp) será instalado como serviço desnecessário que será desativado no hardening.
+Descubra o IP Host-only:
+  ip -4 -br addr
+O exemplo deste laboratório usa 192.168.56.101, dentro de 192.168.56.0/24. Use o IP real da sua VM. Se a segunda interface não obtiver IP, identifique seu nome com ip -br addr e, se necessário, solicite DHCP com sudo dhclient NOME_DA_INTERFACE.
+
+4. CONFERIR A AUTORIZAÇÃO
+Abra escopo_lab.json e confirme responsável, finalidade, autorizador, validade, rede e portas. O exemplo autoriza 192.168.56.0/24 e portas 1-1024. Não altere o escopo para incluir rede ou portas que não estejam realmente autorizadas.
+
+5. COLETA INTERNA ANTES (NA VM)
+  ss -tulpn | tee ~/ss_antes.txt
+  sudo sshd -T > ~/sshd_antes.txt
+No Windows, copie para evidencias/ (ajuste o IP):
+  scp aluno@192.168.56.101:~/ss_antes.txt evidencias\
+  scp aluno@192.168.56.101:~/sshd_antes.txt evidencias\
+
+6. VARREDURA ANTES (WINDOWS, POWERSHELL)
+Ative o ambiente virtual e execute:
+  py demo_e3.py --alvo 192.168.56.101 --rotulo antes
+O IP acima é exemplo. O Nmap grava o XML e as tabelas CSV/Markdown em evidencias/.
+Opcionalmente selecione portas dentro do escopo:
+  py demo_e3.py --alvo 192.168.56.101 --portas 22,80 --rotulo antes
+A ferramenta recusa ampliações da faixa de portas registrada.
+
+7. ENDURECIMENTO DO SSH E REDUÇÃO DA SUPERFÍCIE
+a) Configure autenticação por chave antes de desativar login por senha. No Windows:
+  ssh-keygen -t ed25519
+  type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh aluno@192.168.56.101 "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+  ssh aluno@192.168.56.101
+Confirme que entra por chave antes de continuar. Mantenha o console da VM disponível como plano de recuperação.
+
+b) Crie uma configuração específica do laboratório:
+  sudo nano /etc/ssh/sshd_config.d/00-entrega3.conf
+Insira:
+  PermitRootLogin no
+  PasswordAuthentication no
+  KbdInteractiveAuthentication no
+  PubkeyAuthentication yes
+  MaxAuthTries 3
+  LoginGraceTime 30
+  AllowUsers aluno
+  X11Forwarding no
+  ClientAliveInterval 300
+  LogLevel VERBOSE
+No Ubuntu, sshd_config normalmente inclui arquivos de sshd_config.d. O prefixo 00 faz este arquivo ser processado antes de arquivos 50-*. Confira a configuração efetiva:
+  sudo sshd -T | grep -Ei 'permitrootlogin|passwordauthentication|kbdinteractiveauthentication|pubkeyauthentication|maxauthtries|logingracetime|allowusers|x11forwarding|clientaliveinterval|loglevel'
+Valide e reinicie somente após confirmar login por chave:
+  sudo sshd -t
+  sudo systemctl restart ssh
+Mantenha uma sessão autenticada ou o console da VM até testar uma nova conexão.
+
+c) Desative serviços não necessários:
+  sudo systemctl disable --now vsftpd
+  sudo systemctl disable --now rpcbind.service rpcbind.socket
+Se rpcbind não estiver instalado, registre isso e prossiga.
+
+d) Ative firewall permitindo SSH da interface Host-only do Windows. Descubra o IP do Windows com ipconfig; o exemplo abaixo usa 192.168.56.1:
+  sudo ufw default deny incoming
+  sudo ufw allow from 192.168.56.1 to any port 22 proto tcp
+  sudo ufw allow 80/tcp
+  sudo ufw enable
+  sudo ufw status verbose
+Ajuste a origem do SSH ao IP real do Windows. Faça as regras antes de habilitar o firewall. Se perder acesso, use o console da VM ou restaure o snapshot.
+
+8. RETESTE DEPOIS
+Na VM:
+  ss -tulpn | tee ~/ss_depois.txt
+  sudo sshd -T > ~/sshd_depois.txt
+No Windows:
+  scp aluno@192.168.56.101:~/ss_depois.txt evidencias\
+  scp aluno@192.168.56.101:~/sshd_depois.txt evidencias\
+  py demo_e3.py --alvo 192.168.56.101 --rotulo depois --sshd-config evidencias\sshd_depois.txt
+Substitua o IP de exemplo pelo IP real.
+
+9. COMO INTERPRETAR
+- ss -tulpn mostra o que está escutando dentro da VM; Nmap mostra o que está alcançável pela rede a partir do Windows.
+- Um serviço pode escutar apenas em 127.0.0.1 e não estar exposto na interface Host-only.
+- Portas 21/tcp (FTP) e 111/tcp (RPCbind), se presentes sem necessidade, devem ser desativadas e bloqueadas.
+- SSH (22/tcp) e HTTP (80/tcp), mesmo necessários, ainda precisam de hardening.
+- No UDP, open|filtered não confirma que existe serviço aberto.
+
+10. EVIDÊNCIAS
+Guardar em evidencias/:
+- XML Nmap real de antes e depois;
+- tabelas entrega3_tabela_*.csv e .md;
+- ss_antes.txt e ss_depois.txt;
+- sshd_antes.txt e sshd_depois.txt (saída efetiva de sshd -T);
+- logs do demo_e3 e saída de py -m pytest -v;
+- capturas de tela legíveis e vídeo curto.
+Os arquivos de amostras/ são somente didáticos e não são evidência.
+
+AVISO SOBRE VALIDADE
+O escopo do arquivo de exemplo expira em 2026-12-02. Se executar a atividade após essa data, atualize o registro com autorização verdadeira e válida. Não altere datas apenas para contornar a validação.

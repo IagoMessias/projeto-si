@@ -1,0 +1,13 @@
+{
+  "responsavel": "Iago Messias",
+  "finalidade": "Entrega 3 do Projeto Integrador: inventário de portas e serviços de uma VM de homologação própria",
+  "autorizado_por": "Iago Messias (proprietário do laboratório)",
+  "data_autorizacao": "2026-11-22",
+  "validade_ate": "2026-12-02",
+  "redes_autorizadas": ["192.168.56.0/24"],
+  "portas": "1-1024",
+  "servicos_necessarios": [
+    {"porta": 22, "protocolo": "tcp", "justificativa": "Administração remota da VM via SSH"},
+    {"porta": 80, "protocolo": "tcp", "justificativa": "Serviço web de homologação (Apache)"}
+  ]
+}
