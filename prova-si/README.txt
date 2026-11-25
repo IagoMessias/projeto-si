@@ -13,28 +13,30 @@ ENTREGA 2 - HASH E AUTENTICAÇÃO SEGURA
 - A aplicação app.py permite cadastrar e autenticar usuários.
 
 ENTREGA 3 - VARREDURA, SERVIÇOS E SSH
-- varredura.py valida o registro de autorização e executa Nmap para um único IP IPv4 dentro da rede privada autorizada.
-- analise_portas.py compara as portas abertas com os serviços necessários e gera risco/recomendação em tabela CSV e Markdown.
-- auditoria_ssh.py avalia diretivas importantes do OpenSSH, preferencialmente usando a saída efetiva de sshd -T.
-- demo_e3.py exige login do mesmo banco criado por app.py e apresenta a demonstração offline ou executa uma varredura real quando recebe --alvo.
+- varredura.py valida o escopo e executa Nmap somente contra 127.0.0.1 (loopback do próprio Windows).
+- analise_portas.py compara portas abertas com os serviços necessários e gera tabelas CSV/Markdown com risco e recomendação.
+- auditoria_ssh.py avalia diretivas do OpenSSH usando preferencialmente a saída efetiva de sshd -T.
+- demo_e3.py exige login do banco criado por app.py, executa a varredura real quando recebe --alvo e salva evidências.
+- O laboratório usa dois servidores HTTP temporários do Python (8000 necessário e 8001 extra) e o OpenSSH Server local (22).
 
 ESCOPO E SEGURANÇA
-O arquivo escopo_lab.json define responsável, finalidade, autorização, validade, rede autorizada, faixa de portas e serviços necessários. O programa recusa hostnames, IPs fora do escopo e portas que ampliem a faixa autorizada. Use somente a VM própria do laboratório em rede Host-only. O arquivo atual autoriza 192.168.56.0/24 e portas 1-1024, com validade até 2026-12-02; confirme a autorização e atualize os dados de forma verdadeira antes de realizar uma atividade após a validade.
+escopo_lab.json registra responsável, finalidade, autorização, validade, rede, portas e serviços necessários. O código aceita exclusivamente 127.0.0.1/32 e rejeita qualquer outro endereço, inclusive outros IPs privados. As portas autorizadas são 22, 8000 e 8001. A porta 8001 é um serviço extra de demonstração, não necessário. Não altere esses limites para examinar a rede Wi-Fi, doméstica, acadêmica ou a Internet. Atualize a autorização somente com dados verdadeiros e válidos quando a validade vencer.
 
 AMOSTRA OFFLINE
   py demo_e3.py
-Usa arquivos fictícios em amostras/ e não executa Nmap. As tabelas produzidas ficam em amostras/saidas/ e não são evidência da VM.
+Usa arquivos fictícios em amostras/ e não executa Nmap. Não é evidência real.
 
-VARREDURA REAL DA VM
-  py demo_e3.py --alvo 192.168.56.101 --rotulo antes
-O IP é ilustrativo. Use somente o IP Host-only real da sua VM, dentro da rede registrada em escopo_lab.json. Para restringir a uma seleção, use --portas 22,80. A seleção deve ser subconjunto da faixa autorizada.
+LABORATÓRIO LOCAL WINDOWS
+Consulte LAB_ENTREGA3.txt para instalar/preparar o OpenSSH Server, iniciar os servidores HTTP apenas em 127.0.0.1, capturar a configuração SSH e executar as varreduras antes/depois.
 
-RETESTE
-  py demo_e3.py --alvo 192.168.56.101 --rotulo depois --sshd-config evidencias\sshd_depois.txt
+Varredura inicial:
+  py demo_e3.py --alvo 127.0.0.1 --rotulo antes --sshd-config .\evidencias\sshd_antes.txt
+
+Reteste:
+  py demo_e3.py --alvo 127.0.0.1 --rotulo depois --sshd-config .\evidencias\sshd_depois.txt
 
 UDP (OPCIONAL)
-  py demo_e3.py --alvo 192.168.56.101 --udp --portas 53,123,161 --rotulo antes_udp
-Exige terminal elevado e portas UDP explicitamente selecionadas e autorizadas. O estado open|filtered é indeterminado, não uma porta aberta confirmada.
+A demonstração principal utiliza TCP. A varredura UDP permanece opcional, exige portas explícitas e autorizadas e pode exigir privilégios elevados. O estado open|filtered é indeterminado, não uma porta aberta confirmada.
 
 PREPARAÇÃO NO WINDOWS / POWERSHELL
 Na pasta prova-si:
@@ -43,33 +45,31 @@ Na pasta prova-si:
   .\.venv\Scripts\Activate.ps1
   py -m pip install -r requirements.txt
   winget install Insecure.Nmap
-Feche e reabra o terminal e confira nmap --version. A Entrega 3 usa módulos da biblioteca padrão do Python; não exige dependências Python adicionais.
+Feche e reabra o terminal e confira nmap --version. A Entrega 3 usa somente a biblioteca padrão do Python, sem novas dependências Python.
 
 COMO EXECUTAR
   py app.py
 Cadastre uma conta pela opção 1 antes da demonstração.
   py -m pytest -v
-  py demo_e3.py
-  py demo_e3.py --alvo IP_DA_VM --rotulo antes
-
-O passo a passo da VM, serviços de teste, coleta interna com ss -tulpn, hardening do SSH, firewall e reteste está em LAB_ENTREGA3.txt.
+  py demo_e3.py --alvo 127.0.0.1 --rotulo antes --sshd-config .\evidencias\sshd_antes.txt
 
 EVIDÊNCIAS
-Guardar em evidencias/ apenas saídas reais do laboratório: XML do Nmap antes/depois, tabelas CSV/MD, ss_antes.txt/ss_depois.txt, sshd_antes.txt/sshd_depois.txt, logs de execução, testes, capturas e vídeo. Não copiar arquivos da pasta amostras como evidência.
+Guardar em evidencias/ somente saídas reais: XML do Nmap antes/depois, tabelas CSV/MD, saídas efetivas sshd_antes.txt/sshd_depois.txt, relatórios entrega3_ssh_*.txt, logs do demo_e3, testes, capturas e vídeo. Não usar os arquivos de amostras/ como evidência.
 
 LIMITAÇÕES
-- A validação do escopo é uma barreira adicional e não substitui autorização do proprietário do alvo.
-- Nmap mostra o que está alcançável pela rede; ss mostra o que está escutando internamente.
+- A validação do escopo é uma barreira adicional, não substitui autorização do proprietário.
+- Nmap apresenta serviços acessíveis pelo loopback; Get-NetTCPConnection mostra portas locais em escuta.
 - Serviço necessário não significa serviço seguro.
-- A auditoria SSH é didática. O parser simples sinaliza Include e Match; prefira a saída efetiva de sshd -T e use sshd -T -C para condições específicas.
+- A auditoria SSH é didática; prefira a saída efetiva de sshd -T, que incorpora as configurações carregadas pelo servidor.
 - UDP pode ser ambíguo e exigir privilégios elevados.
-- O projeto é um laboratório local, não uma ferramenta de monitoramento ou auditoria profissional.
+- O projeto é um laboratório local, não uma ferramenta profissional de monitoramento ou auditoria.
 
 REFERÊNCIAS
 - Nmap Reference Guide: https://nmap.org/book/man.html
 - Nmap NSE documentation: https://nmap.org/book/nse.html
+- Microsoft Learn. OpenSSH Server installation and first use: https://learn.microsoft.com/windows-server/administration/openssh/openssh_install_firstuse
+- Microsoft Learn. OpenSSH Server configuration for Windows: https://learn.microsoft.com/windows-server/administration/openssh/openssh-server-configuration
 - OpenSSH sshd_config: https://man.openbsd.org/sshd_config
-- OpenSSH sshd(8): https://man.openbsd.org/sshd
 - OWASP Application Security Verification Standard (ASVS) 5.0.0.
 - OWASP Password Storage Cheat Sheet.
 - Documentação oficial Python, cryptography, argon2-cffi e sqlite3.
