@@ -1,114 +1,76 @@
 PROJETO INTEGRADOR - SEGURANÇA APLICADA AO DESENVOLVIMENTO
 Projeto Integrador - Segurança da Informação - Unit
 
-OBJETIVO
-Aplicação didática que reúne os mecanismos de segurança desenvolvidos nas entregas progressivas do projeto.
-
-ENTREGA 1 - CRIPTOGRAFIA ASSIMÉTRICA E CONFIANÇA
-O QUE FAZ
-Protege uma mensagem enviada a outro serviço e permite ao destino verificar quem a enviou. Usa cifragem híbrida (sigilo) e assinatura digital (autenticidade), com a biblioteca cryptography.
-
-COMO FUNCIONA
-1. O remetente cifra a mensagem com AES-256-GCM.
-2. A chave AES é protegida com RSA-OAEP usando a chave pública do destino.
-3. O remetente assina o envelope com Ed25519.
-4. O destino verifica a assinatura e só depois decifra.
-
-ALGORITMOS E PARÂMETROS
-- RSA-OAEP: 3072 bits, e = 65537, SHA-256.
-- AES-256-GCM: nonce de 96 bits aleatório por mensagem, tag de 128 bits.
-- Ed25519: assinatura digital do envelope.
-- Chaves privadas em PEM PKCS#8 protegidas por senha.
+ENTREGA 1 - CRIPTOGRAFIA HÍBRIDA E ASSINATURA DIGITAL
+- AES-256-GCM cifra o conteúdo.
+- RSA-OAEP (3072 bits, SHA-256) protege a chave AES.
+- Ed25519 assina o envelope.
+- O destino verifica a assinatura antes de decifrar.
 
 ENTREGA 2 - HASH E AUTENTICAÇÃO SEGURA
-O QUE FAZ
-Permite cadastrar usuários e fazer login sem armazenar senhas em texto puro.
+- Argon2id, com salt aleatório, protege senhas.
+- SQLite armazena usuário e hash, nunca a senha em texto puro.
+- A aplicação app.py permite cadastrar e autenticar usuários.
 
-COMO FUNCIONA
-1. No cadastro, a aplicação valida o nome de usuário e a senha.
-2. Argon2id gera um hash com salt aleatório.
-3. O banco SQLite armazena o nome de usuário e o hash codificado.
-4. No login, a biblioteca Argon2 verifica a senha informada contra o hash armazenado.
+ENTREGA 3 - VARREDURA, SERVIÇOS E SSH
+- varredura.py valida o escopo e executa Nmap somente contra 127.0.0.1 (loopback do próprio Windows).
+- analise_portas.py compara portas abertas com os serviços necessários e gera tabelas CSV/Markdown com risco e recomendação.
+- auditoria_ssh.py possui perfil específico do OpenSSH para Windows, incluindo verificação de ListenAddress.
+- demo_e3.py exige login do banco criado por app.py, executa a varredura real quando recebe --alvo e salva evidências.
+- O laboratório usa OpenSSH Server local (22/tcp), um servidor HTTP temporário necessário (8000/tcp) e outro servidor temporário extra (8001/tcp), ambos do Python.
 
-ARGON2ID E PARÂMETROS
-- Algoritmo: Argon2id, pela biblioteca argon2-cffi.
-- Memória: 47.104 KiB (46 MiB).
-- Iterações (time_cost): 1.
-- Paralelismo: 1.
-- Salt aleatório: 16 bytes, gerado pela biblioteca.
-- Tamanho do hash: 32 bytes.
-- Senha: mínimo de 8 caracteres; não há exigência de composição por maiúsculas, números ou símbolos.
-- A string PHC produzida pela biblioteca contém algoritmo, parâmetros, salt e hash. Por isso, o salt não precisa de coluna separada no SQLite.
+ESCOPO E SEGURANÇA
+escopo_lab.json registra responsável, finalidade, autorização, validade, rede, portas e serviços necessários. O código aceita exclusivamente 127.0.0.1/32 e rejeita qualquer outro endereço. As portas TCP autorizadas são 22, 8000 e 8001. A porta 8001 é um serviço extra de demonstração, não necessário, e será encerrada depois da primeira varredura. Não altere esses limites para examinar a rede Wi-Fi, doméstica, acadêmica ou a Internet. Atualize a autorização somente com dados verdadeiros e válidos quando a validade vencer.
 
-POR QUE NÃO USAR SHA-256 ISOLADAMENTE PARA SENHAS
-SHA-256 é uma função de hash rápida e de uso geral. Essa rapidez permite que um atacante teste muitas senhas por segundo após obter uma cópia do banco. Argon2id é uma função específica para senhas, com custo configurável de memória e tempo, tornando cada tentativa mais cara. O salt aleatório e exclusivo também impede que senhas iguais produzam necessariamente o mesmo hash e dificulta o uso de tabelas pré-calculadas.
+AMOSTRA OFFLINE
+  py demo_e3.py
+Usa arquivos fictícios em amostras/ e não executa Nmap. Não é evidência real.
 
-BANCO DE DADOS
-- Banco local SQLite: usuarios.db (criado automaticamente ao executar app.py).
-- Tabela usuarios: id, usuario, senha_hash e criado_em.
-- Consultas SQL usam parâmetros, e o nome de usuário possui restrição de unicidade sem diferenciar maiúsculas/minúsculas.
-- usuarios.db é dado gerado localmente e não deve ser enviado ao Git.
+LABORATÓRIO LOCAL WINDOWS
+Consulte LAB_ENTREGA3.txt para instalar/preparar o OpenSSH Server, iniciar os servidores HTTP somente em 127.0.0.1, capturar a configuração SSH e executar as varreduras antes/depois.
+A configuração do OpenSSH fica em %ProgramData%\ssh\sshd_config. Faça backup antes de editar e restaure-a após a atividade se não pretender manter as alterações.
 
-COMO PREPARAR O AMBIENTE (WINDOWS / POWERSHELL)
-Na raiz da pasta do projeto:
+Varredura inicial:
+  py demo_e3.py --alvo 127.0.0.1 --rotulo antes --sshd-config .\evidencias\sshd_antes.txt | Tee-Object .\evidencias\entrega3_demo_antes.txt
+
+Reteste:
+  py demo_e3.py --alvo 127.0.0.1 --rotulo depois --sshd-config .\evidencias\sshd_depois.txt | Tee-Object .\evidencias\entrega3_demo_depois.txt
+
+PREPARAÇÃO NO WINDOWS / POWERSHELL
+Na pasta prova-si:
   py -m venv .venv
+  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
   .\.venv\Scripts\Activate.ps1
   py -m pip install -r requirements.txt
+  winget install Insecure.Nmap
+Feche e reabra o terminal e confira nmap --version. A Entrega 3 usa somente a biblioteca padrão do Python, sem novas dependências Python.
 
 COMO EXECUTAR
-Testes automatizados:
-  py -m pytest -v
-
-Demonstração integrada das Entregas 1 e 2 (sem login, banco temporário):
-  py demo.py
-
-Demonstração da Entrega 2 com login obrigatório (mesmo usuarios.db do app.py):
   py app.py
-  py demo_e2.py
-  - Exige usuário e senha cadastrados pelo app.py (opção 1).
-  - Login correto: executa as demonstrações com mensagens [ACEITO]/[REJEITADO].
-  - Login incorreto: mostra [REJEITADO] e encerra sem executar a demonstração.
+Cadastre uma conta pela opção 1 antes da demonstração.
+  py -m pytest -v | Tee-Object .\evidencias\entrega3_testes.txt
+  py demo_e3.py --alvo 127.0.0.1 --rotulo antes --sshd-config .\evidencias\sshd_antes.txt | Tee-Object .\evidencias\entrega3_demo_antes.txt
 
-Aplicação de cadastro e login:
-  py app.py
+EVIDÊNCIAS
+Guardar em evidencias/ apenas saídas reais: XML do Nmap antes/depois, tabelas CSV/MD, saídas efetivas sshd_antes.txt/sshd_depois.txt, relatórios entrega3_ssh_*.txt, logs do demo_e3, testes, capturas e vídeo. Não usar arquivos de amostras/ como evidência.
 
-Demonstração manual de adulteração da Entrega 1:
-  py testes_erros.py gerar
-  py testes_erros.py abrir
-  py testes_erros.py abrir --outro-destino
+LIMITAÇÕES
+- A validação do escopo é uma barreira adicional, não substitui autorização do proprietário.
+- Nmap apresenta serviços acessíveis pelo loopback; Get-NetTCPConnection mostra portas locais em escuta.
+- Serviço necessário não significa serviço seguro.
+- A auditoria do SSH é didática e considera diretivas compatíveis com o OpenSSH Server do Windows. PermitRootLogin não se aplica ao Windows; KbdInteractiveAuthentication e X11Forwarding não são suportadas nessa distribuição.
+- A auditoria exige saída efetiva de sshd -T e verificação separada do endereço em escuta.
+- UDP permanece opcional; estados open|filtered são indeterminados.
+- O projeto é um laboratório local, não uma ferramenta profissional de monitoramento ou auditoria.
 
-Na demonstração de criptografia, a senha protege os arquivos PEM gerados na pasta chaves_demo/. Essa pasta é separada de chaves/ para não sobrescrever arquivos de chave que você já tenha da Entrega 1.
-
-No primeiro uso do demo.py ou do demo_e2.py, se as chaves ainda não existirem, o programa solicita uma senha e sua confirmação para proteger as chaves privadas. O demo_e2.py reutiliza as chaves existentes e solicita a senha delas. Se a senha estiver incorreta ou o conjunto de arquivos estiver incompleto, a demonstração é interrompida e os arquivos existentes não são sobrescritos. Não existe senha fixa no código.
-
-Opcionalmente, ENTREGA1_SENHA pode ser definida na sessão atual do PowerShell para evitar a pergunta interativa. Use essa opção somente em ambiente confiável, não coloque o valor em scripts ou no Git e remova a variável ao terminar com: Remove-Item Env:ENTREGA1_SENHA. Não coloque senhas reais em arquivos ou no Git.
-
-TESTES
-- test_cripto.py: testes positivos e negativos da criptografia híbrida e assinatura digital da Entrega 1.
-- test_auth.py: testes de cadastro, login correto/incorreto, hash Argon2id, salt aleatório, usuário duplicado, validação e hash adulterado da Entrega 2.
-- testes_erros.py: ferramenta de demonstração manual; não é coletada automaticamente pelo pytest por seu nome.
-
-SEGURANÇA E LIMITES
-- Não armazena senhas em texto puro. O hash não é criptografia e não pode ser revertido para recuperar a senha original.
-- A comparação é realizada por PasswordHasher.verify() da biblioteca argon2-cffi; não há comparação manual de hashes.
-- A aplicação é didática e local. Não implementa limitação de tentativas, recuperação de senha, MFA, sessão web, proteção contra enumeração por tempo ou controle de acesso multiusuário.
-- A mensagem de erro de login é genérica, mas isso não substitui controles de taxa de tentativas e mitigação de diferenças de tempo.
-- Sem certificados/PKI: as chaves públicas da Entrega 1 são trocadas diretamente.
-- Sem proteção contra reenvio de um pacote legítimo (replay).
-- Chaves privadas da Entrega 1 ficam em arquivos locais protegidos por senha; em produção, usar cofre de segredos e política de rotação.
-- O SQLite é adequado ao laboratório local, não substitui um banco configurado e administrado para produção.
-- Usar somente dados fictícios e ambiente próprio/autorizado.
-
-DEPENDÊNCIAS
-- cryptography: criptografia híbrida e assinaturas digitais.
-- argon2-cffi: hash e verificação de senhas com Argon2id.
-- pytest: testes automatizados.
-
-REFERÊNCIAS TÉCNICAS
-- OWASP Application Security Verification Standard (ASVS) 5.0.0, requisitos de armazenamento de senhas e autenticação.
+REFERÊNCIAS
+- Nmap Reference Guide: https://nmap.org/book/man.html
+- Nmap NSE documentation: https://nmap.org/book/nse.html
+- Microsoft Learn. Instalar OpenSSH para Windows: https://learn.microsoft.com/windows-server/administration/openssh/openssh_install_firstuse
+- Microsoft Learn. Configuração do OpenSSH Server para Windows: https://learn.microsoft.com/windows-server/administration/OpenSSH/openssh-server-configuration
+- OpenSSH sshd_config: https://man.openbsd.org/sshd_config
+- OWASP Application Security Verification Standard (ASVS) 5.0.0.
 - OWASP Password Storage Cheat Sheet.
-- Documentação oficial argon2-cffi.
-- Documentação oficial Python sqlite3.
+- Documentação oficial Python, cryptography, argon2-cffi e sqlite3.
 
-Link GitHub:
-https://github.com/IagoMessias/projeto-si
+Repositório: https://github.com/IagoMessias/projeto-si

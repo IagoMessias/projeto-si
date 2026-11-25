@@ -1,0 +1,21 @@
+{
+  "responsavel": "Iago Messias",
+  "finalidade": "Entrega 3 do Projeto Integrador: inventário controlado de serviços locais do próprio computador Windows",
+  "autorizado_por": "Iago Messias (proprietário do computador e do laboratório local)",
+  "data_autorizacao": "2026-11-25",
+  "validade_ate": "2026-12-02",
+  "redes_autorizadas": ["127.0.0.1/32"],
+  "portas": "22,8000-8001",
+  "servicos_necessarios": [
+    {
+      "porta": 22,
+      "protocolo": "tcp",
+      "justificativa": "OpenSSH Server local, vinculado exclusivamente ao loopback, para auditoria de autenticação remota"
+    },
+    {
+      "porta": 8000,
+      "protocolo": "tcp",
+      "justificativa": "Servidor HTTP temporário do Python, vinculado exclusivamente ao loopback"
+    }
+  ]
+}

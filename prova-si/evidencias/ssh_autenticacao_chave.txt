@@ -1,0 +1,4 @@
+Authenticated to 127.0.0.1 ([127.0.0.1]:22) using "publickey".
+debug1: Sending command: echo SSH_AUTH_OK
+SSH_AUTH_OK
+debug1: Exit status 0
