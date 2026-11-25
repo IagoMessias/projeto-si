@@ -6,6 +6,7 @@ Diretivas Include e blocos Match são sinalizados, mas não expandidos pelo pars
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 PADROES = {
     "permitrootlogin": "prohibit-password",
@@ -170,3 +171,46 @@ def tabela_texto(achados) -> str:
             (achado["diretiva"], achado["atual"], achado["esperado"], achado["status"]), larguras
         )))
     return "\n".join(linhas)
+
+
+
+def auditar_windows(texto: str) -> list:
+    """Audita somente diretivas suportadas pelo OpenSSH distribuído para Windows.
+
+    No Win32 OpenSSH, PermitRootLogin não se aplica e X11Forwarding e
+    KbdInteractiveAuthentication não são suportadas. ListenAddress é validada
+    para exigir que o serviço escute exclusivamente no loopback IPv4.
+    """
+    cfg, _, _ = ler_configuracao(texto)
+    nomes_suportados = {
+        "PasswordAuthentication",
+        "PubkeyAuthentication",
+        "PermitEmptyPasswords",
+        "MaxAuthTries",
+        "LoginGraceTime",
+        "AllowUsers / AllowGroups",
+        "ClientAliveInterval",
+        "LogLevel",
+        "Port",
+    }
+    achados = [a for a in auditar(texto) if a["diretiva"] in nomes_suportados]
+
+    listen = cfg.get("listenaddress", [])
+    padrao_local = re.compile(r"^127\\.0\\.0\\.1(?::[0-9]{1,5})?$")
+    somente_loopback = bool(listen) and all(padrao_local.fullmatch(v.strip()) for v in listen)
+    achados.append({
+        "diretiva": "ListenAddress",
+        "atual": ", ".join(listen) if listen else "(não definido)",
+        "esperado": "somente 127.0.0.1",
+        "status": "OK" if somente_loopback else "FALHA",
+        "recomendacao": (
+            "Manter o SSH vinculado somente ao loopback; confirme também com "
+            "Get-NetTCPConnection -State Listen -LocalPort 22."
+        ),
+        "controle": "ISO 27002 8.20",
+    })
+    return achados
+
+
+def auditar_windows_arquivo(caminho) -> list:
+    return auditar_windows(Path(caminho).read_text(encoding="utf-8", errors="replace"))
