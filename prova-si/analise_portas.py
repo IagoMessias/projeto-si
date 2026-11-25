@@ -15,7 +15,7 @@ CATALOGO = {
     (21, "tcp"): ("FTP", "Alto", "Autenticação e dados em texto claro; alvo comum de força bruta.",
                   "Substituir por SFTP (via SSH); se mantido, exigir TLS e restringir a origem."),
     (22, "tcp"): ("SSH", "Médio", "Acesso remoto; alvo de força bruta quando aceita senha.",
-                  "Autenticação por chave, PasswordAuthentication no, PermitRootLogin no, AllowUsers e firewall por origem."),
+                  "Autenticação por chave, PasswordAuthentication no, PermitRootLogin no e serviço vinculado somente a 127.0.0.1."),
     (23, "tcp"): ("Telnet", "Alto", "Sessão remota sem criptografia: a senha trafega em texto claro.", "Substituir por SSH."),
     (25, "tcp"): ("SMTP", "Médio", "Pode permitir relay aberto e enumeração de usuários.", "Restringir origens, exigir TLS e autenticação."),
     (53, "tcp"): ("DNS", "Médio", "Pode ser usado em amplificação e vazamento de zonas.", "Desabilitar transferência de zona e consultas recursivas externas."),
@@ -27,6 +27,8 @@ CATALOGO = {
     (139, "tcp"): ("NetBIOS", "Alto", "Compartilhamento legado e enumeração de recursos.", "Desativar ou bloquear."),
     (143, "tcp"): ("IMAP", "Médio", "Credenciais em texto claro sem TLS.", "Usar IMAPS ou exigir STARTTLS."),
     (443, "tcp"): ("HTTPS", "Baixo", "Risco depende da versão de TLS, do certificado e da aplicação.", "Permitir só TLS 1.2 e 1.3 (ASVS 12.1.1), certificado válido e servidor atualizado."),
+    (8000, "tcp"): ("HTTP local", "Médio", "Servidor HTTP temporário de demonstração, sem TLS e destinado somente ao loopback.", "Manter somente durante o laboratório e vinculado a 127.0.0.1."),
+    (8001, "tcp"): ("HTTP extra", "Médio", "Servidor HTTP temporário adicional, não previsto como necessário no escopo.", "Encerrar o servidor de demonstração extra após a varredura inicial.")
     (445, "tcp"): ("SMB", "Alto", "Compartilhamento de arquivos com histórico de falhas críticas.", "Não expor; exigir SMB assinado e versões recentes."),
     (3306, "tcp"): ("MySQL", "Alto", "Banco de dados acessível pela rede.", "Escutar só em 127.0.0.1 ou em rede de serviço isolada."),
     (3389, "tcp"): ("RDP", "Alto", "Acesso remoto gráfico alvo frequente de ataques.", "Não expor; usar VPN, MFA e NLA."),
