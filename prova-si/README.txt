@@ -31,10 +31,10 @@ Consulte LAB_ENTREGA3.txt para instalar/preparar o OpenSSH Server, iniciar os se
 A configuração do OpenSSH fica em %ProgramData%\ssh\sshd_config. Faça backup antes de editar e restaure-a após a atividade se não pretender manter as alterações.
 
 Varredura inicial:
-  py demo_e3.py --alvo 127.0.0.1 --rotulo antes --sshd-config .\evidencias\sshd_antes.txt
+  py demo_e3.py --alvo 127.0.0.1 --rotulo antes --sshd-config .\evidencias\sshd_antes.txt | Tee-Object .\evidencias\entrega3_demo_antes.txt
 
 Reteste:
-  py demo_e3.py --alvo 127.0.0.1 --rotulo depois --sshd-config .\evidencias\sshd_depois.txt
+  py demo_e3.py --alvo 127.0.0.1 --rotulo depois --sshd-config .\evidencias\sshd_depois.txt | Tee-Object .\evidencias\entrega3_demo_depois.txt
 
 PREPARAÇÃO NO WINDOWS / POWERSHELL
 Na pasta prova-si:
@@ -48,8 +48,8 @@ Feche e reabra o terminal e confira nmap --version. A Entrega 3 usa somente a bi
 COMO EXECUTAR
   py app.py
 Cadastre uma conta pela opção 1 antes da demonstração.
-  py -m pytest -v
-  py demo_e3.py --alvo 127.0.0.1 --rotulo antes --sshd-config .\evidencias\sshd_antes.txt
+  py -m pytest -v | Tee-Object .\evidencias\entrega3_testes.txt
+  py demo_e3.py --alvo 127.0.0.1 --rotulo antes --sshd-config .\evidencias\sshd_antes.txt | Tee-Object .\evidencias\entrega3_demo_antes.txt
 
 EVIDÊNCIAS
 Guardar em evidencias/ apenas saídas reais: XML do Nmap antes/depois, tabelas CSV/MD, saídas efetivas sshd_antes.txt/sshd_depois.txt, relatórios entrega3_ssh_*.txt, logs do demo_e3, testes, capturas e vídeo. Não usar arquivos de amostras/ como evidência.
