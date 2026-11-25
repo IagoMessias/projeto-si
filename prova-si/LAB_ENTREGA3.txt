@@ -426,29 +426,53 @@ if ($LASTEXITCODE -ne 0) {
 Restart-Service sshd
 ```
 
-Repita o teste de autenticação por chave pública e registre a saída:
+Depois, repita o teste de autenticação por chave pública e registre uma evidência filtrada, sem salvar todo o histórico de depuração:
 
 ```powershell
 $ssh = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
 $key = Join-Path $HOME '.ssh\id_ed25519_e3'
 
-& $ssh -v -p 22 `
+$saida = & $ssh -v -p 22 `
     -l "$env:USERNAME" `
     -i "$key" `
     -o IdentitiesOnly=yes `
     -o PreferredAuthentications=publickey `
     -o PasswordAuthentication=no `
     -o BatchMode=no `
-    -o StrictHostKeyChecking=accept-new `
-    127.0.0.1 "whoami" 2>&1 |
-    Tee-Object .\evidencias\ssh_autenticacao_chave.txt
+    -o StrictHostKeyChecking=yes `
+    127.0.0.1 "echo SSH_AUTH_OK" 2>&1
 
-if ($LASTEXITCODE -ne 0) {
-    throw "A autenticação SSH por chave pública falhou."
+$codigo = $LASTEXITCODE
+
+if ($codigo -ne 0) {
+    throw "Falha na autenticação SSH por chave pública."
 }
+
+$evidencia = $saida |
+    Select-String 'Authenticated to 127\.0\.0\.1.*using "publickey"|SSH_AUTH_OK|Exit status 0'
+
+if (-not $evidencia) {
+    throw "Autenticação realizada, mas as mensagens de confirmação não foram encontradas."
+}
+
+$evidencia |
+    Set-Content -Encoding utf8 .\evidencias\ssh_autenticacao_chave.txt
+
+Get-Content .\evidencias\ssh_autenticacao_chave.txt
 ```
 
-A conexão deve continuar funcionando mesmo com `PasswordAuthentication no`. A evidência deve registrar a autenticação com chave pública.
+Quando solicitado, informe a passphrase da chave privada.
+
+A saída deverá apresentar mensagens semelhantes a:
+
+```text
+Authenticated to 127.0.0.1 ([127.0.0.1]:22) using "publickey".
+debug1: Sending command: echo SSH_AUTH_OK
+SSH_AUTH_OK
+debug1: Exit status 0
+```
+
+A conexão deve continuar funcionando mesmo com `PasswordAuthentication no`. O arquivo `ssh_autenticacao_chave.txt` registra a autenticação bem-sucedida sem expor a chave privada nem todo o histórico de depuração.
 
 ### g) Confirmar a escuta e registrar a evidência
 
