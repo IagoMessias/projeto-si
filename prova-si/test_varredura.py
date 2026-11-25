@@ -13,15 +13,15 @@ import auditoria_ssh as ssh
 import varredura as vr
 
 AMOSTRAS = Path(__file__).parent / "amostras"
-HOJE = date(2026, 11, 22)
+HOJE = date(2026, 11, 24)
 
 ESCOPO_VALIDO = {
     "responsavel": "Aluno", "finalidade": "Teste", "autorizado_por": "Aluno",
     "data_autorizacao": "2026-11-20", "validade_ate": "2026-12-02",
-    "redes_autorizadas": ["192.168.56.0/24"], "portas": "1-1024",
+    "redes_autorizadas": ["127.0.0.1/32"], "portas": "22,8000-8001",
     "servicos_necessarios": [
-        {"porta": 22, "protocolo": "tcp", "justificativa": "SSH"},
-        {"porta": 80, "protocolo": "tcp", "justificativa": "Web"},
+        {"porta": 22, "protocolo": "tcp", "justificativa": "SSH local"},
+        {"porta": 8000, "protocolo": "tcp", "justificativa": "HTTP local"},
     ],
 }
 
@@ -40,7 +40,7 @@ def escopo(tmp_path):
 
 # Escopo e autorização
 def test_escopo_valido_e_carregado(escopo):
-    assert str(escopo.redes[0]) == "192.168.56.0/24"
+    assert str(escopo.redes[0]) == "127.0.0.1/32"
     assert escopo.validade_ate == date(2026, 12, 2)
 
 
@@ -70,8 +70,8 @@ def test_autorizacao_com_data_futura_e_rejeitada(tmp_path):
 
 @pytest.mark.parametrize(
     "rede",
-    ["8.8.8.0/24", "0.0.0.0/0", "10.0.0.0/8", "203.0.113.0/24",
-     "100.64.0.0/24", "2001:db8::/64", "nao-e-rede"],
+    ["8.8.8.0/24", "0.0.0.0/0", "10.0.0.0/8", "192.168.56.0/24",
+     "127.0.0.0/24", "203.0.113.0/24", "100.64.0.0/24", "2001:db8::/64", "nao-e-rede"],
 )
 def test_rede_publica_grande_ou_invalida_e_rejeitada(tmp_path, rede):
     with pytest.raises(vr.ErroEscopo):
@@ -88,12 +88,12 @@ def test_arquivo_ausente_ou_malformado(tmp_path):
 
 
 def test_alvo_no_escopo_e_aceito(escopo):
-    assert str(vr.validar_alvo("192.168.56.101", escopo)) == "192.168.56.101"
+    assert str(vr.validar_alvo("127.0.0.1", escopo)) == "127.0.0.1"
 
 
 @pytest.mark.parametrize("alvo", [
-    "8.8.8.8", "192.168.1.10", "scanme.nmap.org", "192.168.56.0/24",
-    "192.168.56.101; calc", "192.168.56.101 -p-", "", "::1", None,
+    "8.8.8.8", "192.168.1.10", "scanme.nmap.org", "192.168.56.1",
+    "127.0.0.2", "127.0.0.1/32", "127.0.0.1; calc", "127.0.0.1 -p-", "", "::1", None,
 ])
 def test_alvo_fora_do_escopo_ou_malformado_e_rejeitado(escopo, alvo):
     with pytest.raises(vr.ErroEscopo):
@@ -107,13 +107,13 @@ def test_portas_validas(portas):
 
 
 def test_portas_especificas_dentro_do_escopo_sao_aceitas():
-    assert vr.validar_portas_no_escopo("22,80", "1-1024") == "22,80"
+    assert vr.validar_portas_no_escopo("22,8000", "22,8000-8001") == "22,8000"
 
 
 @pytest.mark.parametrize("solicitadas", ["1-65535", "1024-1025", "3306", "22,3306"])
 def test_portas_fora_do_escopo_sao_rejeitadas(solicitadas):
     with pytest.raises(vr.ErroEscopo, match="excedem o escopo"):
-        vr.validar_portas_no_escopo(solicitadas, "1-1024")
+        vr.validar_portas_no_escopo(solicitadas, "22,8000-8001")
 
 
 @pytest.mark.parametrize("portas", ["", "0", "70000", "100-50", "22;ls", "22, 80", "a-b", "1-1024 -A"])
@@ -123,24 +123,24 @@ def test_portas_invalidas(portas):
 
 
 def test_comando_tcp_e_uma_lista_sem_shell(tmp_path):
-    cmd = vr.montar_comando("192.168.56.101", "1-1024", tmp_path / "s.xml")
+    cmd = vr.montar_comando("127.0.0.1", "22,8000-8001", tmp_path / "s.xml")
     assert isinstance(cmd, list)
     assert cmd[0] == "nmap" and "-sT" in cmd and "-sV" in cmd and "-oX" in cmd
-    assert cmd[-1] == "192.168.56.101"
-    assert cmd[cmd.index("-p") + 1] == "1-1024"
+    assert cmd[-1] == "127.0.0.1"
+    assert cmd[cmd.index("-p") + 1] == "22,8000-8001"
     assert "-A" not in cmd and "-sS" not in cmd
 
 
 def test_comando_udp_respeita_a_faixa_informada(tmp_path):
-    cmd = vr.montar_comando("192.168.56.101", "53,123,161", tmp_path / "s.xml", udp=True)
+    cmd = vr.montar_comando("127.0.0.1", "8000-8001", tmp_path / "s.xml", udp=True)
     assert "-sU" in cmd and "-p" in cmd
-    assert cmd[cmd.index("-p") + 1] == "53,123,161"
+    assert cmd[cmd.index("-p") + 1] == "8000-8001"
     assert "--top-ports" not in cmd and "-sV" not in cmd
 
 
 def test_comando_rejeita_portas_maliciosas(tmp_path):
     with pytest.raises(vr.ErroEscopo):
-        vr.montar_comando("192.168.56.101", "22; calc", tmp_path / "s.xml")
+        vr.montar_comando("127.0.0.1", "22; calc", tmp_path / "s.xml")
 
 
 def test_executar_nmap_recusa_alvo_fora_do_escopo_antes_de_rodar(escopo, tmp_path):
@@ -172,14 +172,14 @@ def test_escopo_rejeita_servico_necessario_fora_da_faixa(tmp_path):
 
 def test_rotulo_invalido_e_rejeitado(escopo, tmp_path):
     with pytest.raises(vr.ErroEscopo):
-        vr.executar_nmap("192.168.56.101", escopo, rotulo="../fora", pasta_saida=tmp_path)
+        vr.executar_nmap("127.0.0.1", escopo, rotulo="../fora", pasta_saida=tmp_path)
 
 
 # Leitura do XML
 def test_ler_xml_de_amostra():
     resultado = vr.ler_xml(AMOSTRAS / "nmap_lab_exemplo.xml")
     assert resultado.hosts_ativos == 1
-    assert [p.porta for p in resultado.portas] == [21, 22, 80, 111]
+    assert [p.porta for p in resultado.portas] == [21, 22, 8000, 8001]
     ssh_port = next(p for p in resultado.portas if p.porta == 22)
     assert ssh_port.produto == "OpenSSH" and "ssh-hostkey" in ssh_port.scripts
 
@@ -220,7 +220,8 @@ def test_classificacao_necessidade_e_risco(escopo):
     assert achados[21]["recomendacao"].startswith("Fechar")
     assert achados[22]["necessidade"] == "Necessária"
     assert achados[22]["recomendacao"].startswith("Manter")
-    assert achados[111]["necessidade"] == "Não necessária"
+    assert achados[8000]["necessidade"] == "Necessária"
+    assert achados[8001]["necessidade"] == "Não necessária"
 
 
 def test_servico_desnecessario_nunca_fica_com_risco_baixo():
@@ -243,7 +244,7 @@ def test_servico_em_porta_nao_padrao_e_reconhecido_pelo_nome(escopo):
 def test_servico_necessario_ausente_e_listado(escopo):
     portas = vr.ler_xml(AMOSTRAS / "nmap_lab_exemplo.xml").portas
     assert ap.ausentes(portas, escopo) == []
-    assert [s["porta"] for s in ap.ausentes([p for p in portas if p.porta != 80], escopo)] == [80]
+    assert [s["porta"] for s in ap.ausentes([p for p in portas if p.porta != 8000], escopo)] == [8000]
 
 
 def test_resumo_conta_portas_a_fechar(escopo):
@@ -351,7 +352,7 @@ def test_varredura_real_em_loopback(tmp_path):
         arquivo.write_text(
             json.dumps({
                 **ESCOPO_VALIDO,
-                "redes_autorizadas": ["127.0.0.0/24"],
+                "redes_autorizadas": ["127.0.0.1/32"],
                 "portas": str(porta),
                 "servicos_necessarios": [
                     {"porta": porta, "protocolo": "tcp", "justificativa": "teste"}
@@ -366,6 +367,7 @@ def test_varredura_real_em_loopback(tmp_path):
         resultado = vr.ler_xml(xml)
         assert porta in [p.porta for p in resultado.portas]
         assert "nmap" in comando.lower()
+        assert "127.0.0.1" in comando
     finally:
         ativo = False
         fio.join(timeout=2)
