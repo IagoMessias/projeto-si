@@ -15,7 +15,7 @@ CATALOGO = {
     (21, "tcp"): ("FTP", "Alto", "Autenticação e dados em texto claro; alvo comum de força bruta.",
                   "Substituir por SFTP (via SSH); se mantido, exigir TLS e restringir a origem."),
     (22, "tcp"): ("SSH", "Médio", "Acesso remoto; alvo de força bruta quando aceita senha.",
-                  "Autenticação por chave, PasswordAuthentication no, PermitRootLogin no e serviço vinculado somente a 127.0.0.1."),
+                  "Desativar PasswordAuthentication, manter PubkeyAuthentication, limitar ListenAddress a 127.0.0.1 e restringir AllowUsers."),
     (23, "tcp"): ("Telnet", "Alto", "Sessão remota sem criptografia: a senha trafega em texto claro.", "Substituir por SSH."),
     (25, "tcp"): ("SMTP", "Médio", "Pode permitir relay aberto e enumeração de usuários.", "Restringir origens, exigir TLS e autenticação."),
     (53, "tcp"): ("DNS", "Médio", "Pode ser usado em amplificação e vazamento de zonas.", "Desabilitar transferência de zona e consultas recursivas externas."),
