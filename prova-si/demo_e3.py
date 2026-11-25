@@ -123,7 +123,7 @@ def etapa_tabela(escopo, resultado, modo: str):
 def etapa_ssh(sshd_config: str | None, rotulo: str) -> dict:
     titulo("4. AUDITORIA DO SSH (BOAS PRÁTICAS DE AUTENTICAÇÃO REMOTA)")
     if sshd_config:
-        achados = ssh.auditar_arquivo(sshd_config)
+        achados = ssh.auditar_windows_arquivo(sshd_config)
         print(f"Arquivo analisado: {sshd_config}\n")
         print(ssh.tabela_texto(achados))
         r = ssh.resumo(achados)
@@ -139,11 +139,11 @@ def etapa_ssh(sshd_config: str | None, rotulo: str) -> dict:
         )
         print(f"Evidência SSH salva em: {arquivo_saida}")
         return {rotulo: r}
-    print("[AMOSTRA] Comparação entre uma configuração fraca e uma endurecida (dados de exemplo).")
+    print("[AMOSTRA] Comparação didática de configurações do OpenSSH para Windows.")
     resumos = {}
     for rotulo, nome in (("antes", "sshd_config_inseguro.conf"),
                          ("depois", "sshd_config_endurecido.conf")):
-        achados = ssh.auditar_arquivo(AMOSTRAS / nome)
+        achados = ssh.auditar_windows_arquivo(AMOSTRAS / nome)
         resumos[rotulo] = ssh.resumo(achados)
         print(f"\n--- {rotulo.upper()} ({nome}) ---")
         print(ssh.tabela_texto(achados))
@@ -194,7 +194,7 @@ def ler_argumentos(argv=None):
     parser.add_argument("--alvo", help="use somente 127.0.0.1 (loopback do próprio Windows)")
     parser.add_argument(
         "--portas",
-        help="portas a varrer (subconjunto de escopo_lab.json), ex.: 22,80 ou 1-1024",
+        help="portas TCP autorizadas no laboratório local, ex.: 22,8000-8001",
     )
     parser.add_argument(
         "--udp", action="store_true",
