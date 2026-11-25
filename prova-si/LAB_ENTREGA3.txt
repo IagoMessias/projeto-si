@@ -60,7 +60,6 @@ Gere host keys que ainda não existam, valide a sintaxe e só então inicie o se
   & "$env:WINDIR\System32\OpenSSH\ssh-keygen.exe" -A
   & "$env:WINDIR\System32\OpenSSH\sshd.exe" -t
   Start-Service sshd
-  Set-Service -Name sshd -StartupType Manual
 Confirme que a porta 22 escuta SOMENTE em 127.0.0.1:
   Get-NetTCPConnection -State Listen -LocalPort 22 | Format-Table LocalAddress,LocalPort
 Se aparecer 0.0.0.0, :: ou outro endereço, pare o serviço (Stop-Service sshd) e corrija ListenAddress antes de continuar. Não execute Nmap enquanto a escuta não estiver limitada a 127.0.0.1.
@@ -118,7 +117,7 @@ Na seção global, antes de qualquer bloco Match, mantenha Port 22 e ListenAddre
   ClientAliveInterval 300
   LogLevel VERBOSE
 Substitua SEU_USUARIO_WINDOWS pelo nome de usuário real do Windows, em letras minúsculas. Consulte a parte final do comando whoami (depois da barra invertida) ou use $env:USERNAME para identificar a conta. Não deixe o texto de exemplo literalmente no arquivo. Edite as diretivas existentes em vez de duplicá-las.
-Observação: PasswordAuthentication no bloqueia login por senha no SSH. O exercício não exige entrar remotamente no servidor, mas se você utiliza OpenSSH para outras finalidades, certifique-se de não interromper esse uso. A configuração é local e foi copiada em backup na etapa 2.
+Observação: PasswordAuthentication no bloqueia login por senha no SSH. Neste laboratório, o SSH é usado para identificar a porta e auditar a configuração; não é necessário abrir uma sessão remota. Se você precisa utilizar o servidor SSH para outros fins, configure e teste uma chave pública antes de desativar a senha. A configuração é local e foi copiada em backup na etapa 2.
 c) Valide e reinicie:
   & "$env:WINDIR\System32\OpenSSH\sshd.exe" -t
   Restart-Service sshd
@@ -152,10 +151,12 @@ Os arquivos da pasta amostras/ são somente didáticos e não substituem evidên
 11. RESTAURAR O OPENSSH APÓS A ATIVIDADE
 Depois de gerar todas as evidências, se você não pretende manter a configuração didática, restaure o backup:
   Copy-Item "$env:ProgramData\ssh\sshd_config.entrega3.bak" "$env:ProgramData\ssh\sshd_config" -Force
-  Restart-Service sshd
-Se o OpenSSH Server não existia antes e foi instalado apenas para o laboratório, você pode parar o serviço ao terminar:
   Stop-Service sshd
-Não remova o backup até confirmar que o serviço voltou ao estado desejado.
+Se não havia arquivo de configuração antes (não foi criado backup), pare o serviço:
+  Stop-Service sshd
+Se o OpenSSH Server foi instalado exclusivamente para esta atividade, você pode removê-lo depois de parar o serviço:
+  Remove-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+Não remova o backup antes de conferir que ele contém a configuração original. O serviço fica parado ao final, como estava antes do laboratório.
 
 OBSERVAÇÕES
 - Nmap mostra o que está acessível no loopback; Get-NetTCPConnection mostra os sockets locais em escuta.
