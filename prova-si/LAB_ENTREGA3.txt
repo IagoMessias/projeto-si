@@ -28,6 +28,7 @@ O arquivo de configuração padrão fica em:
   $env:ProgramData\ssh\sshd_config
 Não inicie o serviço ainda. Primeiro prepare o arquivo para garantir que ele nunca escute fora do loopback durante o laboratório.
 Defina o caminho e faça backup, se já existir:
+  New-Item -ItemType Directory -Force (Join-Path $env:ProgramData 'ssh') | Out-Null
   $config = Join-Path $env:ProgramData 'ssh\sshd_config'
   if (Test-Path $config) { Copy-Item $config "$config.entrega3.bak" -Force }
 Se o arquivo NÃO existir, crie uma configuração mínima local antes de iniciar o serviço:
