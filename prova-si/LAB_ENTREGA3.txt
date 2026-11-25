@@ -1,115 +1,129 @@
-LABORATÓRIO DA ENTREGA 3 - PASSO A PASSO
+LABORATÓRIO DA ENTREGA 3 - WINDOWS LOCAL (SEM MÁQUINA VIRTUAL)
 Projeto Integrador - Segurança da Informação - Unit
 
-REGRA DE OURO
-Faça a varredura somente na VM própria do laboratório, conectada à rede Host-only e registrada em escopo_lab.json. Não varra redes da faculdade, de casa ou da Internet. A validação do programa complementa, mas não substitui, autorização válida.
+OBJETIVO E LIMITE
+O laboratório usa somente o próprio computador Windows. A varredura é restrita a 127.0.0.1/32 (loopback) e às portas 22, 8000 e 8001. O programa rejeita qualquer outro IP. Não altere esse limite para examinar Wi-Fi, rede doméstica, rede da faculdade ou Internet.
 
-1. FERRAMENTAS NO WINDOWS
-No PowerShell:
-  winget install Insecure.Nmap
-  winget install Oracle.VirtualBox
-Reabra o PowerShell e teste:
+1. PREPARAÇÃO DO PROJETO
+Abra PowerShell na pasta prova-si:
+  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+  .\.venv\Scripts\Activate.ps1
+  py -m pip install -r requirements.txt
+Confira o Nmap:
   nmap --version
+Cadastre usuário da demonstração, caso ainda não exista:
+  py app.py
+Escolha a opção 1 e depois 3 para sair.
 
-2. CRIAR A VM NO VIRTUALBOX
-- ISO: Ubuntu Server LTS. Sugestão: 2 GB RAM, 1-2 CPUs e 15 GB de disco.
-- Adaptador 1: NAT, para instalar pacotes.
-- Adaptador 2: Host-only, para a comunicação entre Windows e VM.
-- Na instalação, selecione Install OpenSSH server e crie o usuário aluno.
-- Antes de alterar configurações, crie um snapshot chamado estado-limpo.
+2. SERVIDOR SSH LOCAL (OPENSSH SERVER)
+A auditoria SSH usa o servidor OpenSSH opcional do próprio Windows. Abra PowerShell COMO ADMINISTRADOR:
+  Get-WindowsCapability -Online | Where-Object Name -like 'OpenSSH.Server*'
+Se o estado for NotPresent:
+  Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+O arquivo de configuração do servidor fica em:
+  $env:ProgramData\ssh\sshd_config
+Abra esse arquivo em um editor executado como Administrador. Na seção global (antes de qualquer bloco Match), confirme que existe:
+  Port 22
+  ListenAddress 127.0.0.1
+Para a medição ANTES, use:
+  PasswordAuthentication yes
+  PubkeyAuthentication yes
+  PermitEmptyPasswords no
+  PermitRootLogin yes
+  MaxAuthTries 6
+  LoginGraceTime 120
+  X11Forwarding no
+  ClientAliveInterval 0
+  LogLevel INFO
+Não remova as demais configurações padrão do Windows. Não duplique diretivas: o OpenSSH usa o primeiro valor aplicável. A diretiva ListenAddress é essencial para o sshd escutar apenas no loopback, e não nas interfaces de rede.
+Valide a configuração:
+  & "$env:WINDIR\System32\OpenSSH\sshd.exe" -t
+Inicie o serviço:
+  Start-Service sshd
+  Set-Service -Name sshd -StartupType Manual
+Confirme o endereço de escuta:
+  Get-NetTCPConnection -State Listen -LocalPort 22 | Format-Table LocalAddress,LocalPort
+O resultado deve mostrar somente 127.0.0.1. Se aparecer 0.0.0.0, :: ou outro IP, pare o serviço (Stop-Service sshd) e corrija ListenAddress antes de continuar.
+A instalação do OpenSSH pode criar uma regra de firewall de entrada. O vínculo do serviço a 127.0.0.1 é obrigatório; não altere ListenAddress para 0.0.0.0.
 
-3. SERVIÇOS DE TESTE NA VM
-  sudo apt update
-  sudo apt install -y apache2 vsftpd
-Apache (80/tcp) e SSH (22/tcp) serão serviços necessários. vsftpd (21/tcp) será instalado como serviço desnecessário que será desativado no hardening.
-Descubra o IP Host-only:
-  ip -4 -br addr
-O exemplo deste laboratório usa 192.168.56.101, dentro de 192.168.56.0/24. Use o IP real da sua VM. Se a segunda interface não obtiver IP, identifique seu nome com ip -br addr e, se necessário, solicite DHCP com sudo dhclient NOME_DA_INTERFACE.
+3. INICIAR OS SERVIDORES HTTP DE TESTE
+Abra duas janelas separadas do PowerShell na pasta prova-si.
+Janela A - serviço necessário:
+  py -m http.server 8000 --bind 127.0.0.1
+Janela B - serviço adicional que será encerrado:
+  py -m http.server 8001 --bind 127.0.0.1
+Mantenha as duas janelas abertas durante a varredura ANTES. Os servidores Python servem apenas a pasta atual e aceitam conexões somente do próprio computador.
 
 4. CONFERIR A AUTORIZAÇÃO
-Abra escopo_lab.json e confirme responsável, finalidade, autorizador, validade, rede e portas. O exemplo autoriza 192.168.56.0/24 e portas 1-1024. Não altere o escopo para incluir rede ou portas que não estejam realmente autorizadas.
+Abra escopo_lab.json. Ele autoriza:
+- Alvo único: 127.0.0.1/32.
+- Portas TCP: 22, 8000 e 8001.
+- Serviços necessários: SSH local (22/tcp) e HTTP de teste (8000/tcp).
+A porta 8001 é um serviço temporário extra, propositalmente não necessário. O arquivo contém responsável, finalidade, autorizador e validade. Se a autorização estiver expirada, não altere a data apenas para contornar a validação; registre uma autorização atual e verdadeira.
 
-5. COLETA INTERNA ANTES (NA VM)
-  ss -tulpn | tee ~/ss_antes.txt
-  sudo sshd -T > ~/sshd_antes.txt
-No Windows, copie para evidencias/ (ajuste o IP):
-  scp aluno@192.168.56.101:~/ss_antes.txt evidencias\
-  scp aluno@192.168.56.101:~/sshd_antes.txt evidencias\
+5. REGISTRAR A CONFIGURAÇÃO SSH ANTES
+No PowerShell (na pasta prova-si):
+  New-Item -ItemType Directory -Force .\evidencias | Out-Null
+  & "$env:WINDIR\System32\OpenSSH\sshd.exe" -T | Out-File -Encoding ascii .\evidencias\sshd_antes.txt
+O comando -T gera a configuração efetiva do OpenSSH Server. Se sshd.exe ou o serviço não estiver disponível, verifique a instalação do OpenSSH Server na etapa 2.
 
-6. VARREDURA ANTES (WINDOWS, POWERSHELL)
-Ative o ambiente virtual e execute:
-  py demo_e3.py --alvo 192.168.56.101 --rotulo antes
-O IP acima é exemplo. O Nmap grava o XML e as tabelas CSV/Markdown em evidencias/.
-Opcionalmente selecione portas dentro do escopo:
-  py demo_e3.py --alvo 192.168.56.101 --portas 22,80 --rotulo antes
-A ferramenta recusa ampliações da faixa de portas registrada.
+6. VARREDURA ANTES
+Na pasta prova-si, com o ambiente virtual ativo:
+  py demo_e3.py --alvo 127.0.0.1 --rotulo antes --sshd-config .\evidencias\sshd_antes.txt
+Informe seu usuário e senha cadastrados no app.py. O programa:
+- valida o JSON e confirma que o alvo é exatamente 127.0.0.1;
+- testa o bloqueio de endereços fora do escopo;
+- executa Nmap apenas nas portas 22, 8000 e 8001;
+- gera XML Nmap, tabela CSV/Markdown e relatório de auditoria SSH em evidencias/.
+Resultado inicial esperado: 22/tcp (SSH), 8000/tcp (HTTP) e 8001/tcp (HTTP extra) abertos, desde que os três serviços estejam ativos.
 
-7. ENDURECIMENTO DO SSH E REDUÇÃO DA SUPERFÍCIE
-a) Configure autenticação por chave antes de desativar login por senha. No Windows:
-  ssh-keygen -t ed25519
-  type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh aluno@192.168.56.101 "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
-  ssh aluno@192.168.56.101
-Confirme que entra por chave antes de continuar. Mantenha o console da VM disponível como plano de recuperação.
-
-b) Crie uma configuração específica do laboratório:
-  sudo nano /etc/ssh/sshd_config.d/00-entrega3.conf
-Insira:
-  PermitRootLogin no
+7. REDUÇÃO DA SUPERFÍCIE E ENDURECIMENTO
+a) Encerre o serviço HTTP extra: na janela B, pressione Ctrl+C. Mantenha o servidor da porta 8000 ativo.
+b) Volte ao editor Administrador e altere, na seção global do sshd_config:
   PasswordAuthentication no
-  KbdInteractiveAuthentication no
   PubkeyAuthentication yes
+  PermitEmptyPasswords no
+  PermitRootLogin no
   MaxAuthTries 3
   LoginGraceTime 30
-  AllowUsers aluno
   X11Forwarding no
   ClientAliveInterval 300
   LogLevel VERBOSE
-No Ubuntu, sshd_config normalmente inclui arquivos de sshd_config.d. O prefixo 00 faz este arquivo ser processado antes de arquivos 50-*. Confira a configuração efetiva:
-  sudo sshd -T | grep -Ei 'permitrootlogin|passwordauthentication|kbdinteractiveauthentication|pubkeyauthentication|maxauthtries|logingracetime|allowusers|x11forwarding|clientaliveinterval|loglevel'
-Valide e reinicie somente após confirmar login por chave:
-  sudo sshd -t
-  sudo systemctl restart ssh
-Mantenha uma sessão autenticada ou o console da VM até testar uma nova conexão.
+Mantenha:
+  Port 22
+  ListenAddress 127.0.0.1
+Ajuste os valores existentes em vez de duplicar diretivas. Esta atividade avalia a configuração; não é necessário permitir acesso SSH pela rede. O serviço continua limitado ao próprio computador.
+Valide antes de reiniciar:
+  & "$env:WINDIR\System32\OpenSSH\sshd.exe" -t
+Reinicie:
+  Restart-Service sshd
+Confirme novamente que o serviço escuta somente em 127.0.0.1:
+  Get-NetTCPConnection -State Listen -LocalPort 22 | Format-Table LocalAddress,LocalPort
 
-c) Desative serviços não necessários:
-  sudo systemctl disable --now vsftpd
-  sudo systemctl disable --now rpcbind.service rpcbind.socket
-Se rpcbind não estiver instalado, registre isso e prossiga.
+8. CAPTURAR E RETESTAR DEPOIS
+Capture a configuração SSH:
+  & "$env:WINDIR\System32\OpenSSH\sshd.exe" -T | Out-File -Encoding ascii .\evidencias\sshd_depois.txt
+Execute:
+  py demo_e3.py --alvo 127.0.0.1 --rotulo depois --sshd-config .\evidencias\sshd_depois.txt
+Resultado esperado: 8001/tcp deixa de aparecer; 22/tcp e 8000/tcp permanecem. A auditoria SSH deve mostrar melhora em PasswordAuthentication, MaxAuthTries, LoginGraceTime, ClientAliveInterval e LogLevel.
 
-d) Ative firewall permitindo SSH da interface Host-only do Windows. Descubra o IP do Windows com ipconfig; o exemplo abaixo usa 192.168.56.1:
-  sudo ufw default deny incoming
-  sudo ufw allow from 192.168.56.1 to any port 22 proto tcp
-  sudo ufw allow 80/tcp
-  sudo ufw enable
-  sudo ufw status verbose
-Ajuste a origem do SSH ao IP real do Windows. Faça as regras antes de habilitar o firewall. Se perder acesso, use o console da VM ou restaure o snapshot.
-
-8. RETESTE DEPOIS
-Na VM:
-  ss -tulpn | tee ~/ss_depois.txt
-  sudo sshd -T > ~/sshd_depois.txt
-No Windows:
-  scp aluno@192.168.56.101:~/ss_depois.txt evidencias\
-  scp aluno@192.168.56.101:~/sshd_depois.txt evidencias\
-  py demo_e3.py --alvo 192.168.56.101 --rotulo depois --sshd-config evidencias\sshd_depois.txt
-Substitua o IP de exemplo pelo IP real.
-
-9. COMO INTERPRETAR
-- ss -tulpn mostra o que está escutando dentro da VM; Nmap mostra o que está alcançável pela rede a partir do Windows.
-- Um serviço pode escutar apenas em 127.0.0.1 e não estar exposto na interface Host-only.
-- Portas 21/tcp (FTP) e 111/tcp (RPCbind), se presentes sem necessidade, devem ser desativadas e bloqueadas.
-- SSH (22/tcp) e HTTP (80/tcp), mesmo necessários, ainda precisam de hardening.
-- No UDP, open|filtered não confirma que existe serviço aberto.
+9. TESTES
+Na pasta prova-si:
+  py -m pytest -v
+Os testes automatizados verificam a restrição estrita ao loopback, o limite de portas, leitura de XML, classificação de riscos, geração de tabelas e auditoria SSH. O teste de integração Nmap cria um listener temporário em 127.0.0.1.
 
 10. EVIDÊNCIAS
 Guardar em evidencias/:
-- XML Nmap real de antes e depois;
-- tabelas entrega3_tabela_*.csv e .md;
-- ss_antes.txt e ss_depois.txt;
-- sshd_antes.txt e sshd_depois.txt (saída efetiva de sshd -T);
-- logs do demo_e3 e saída de py -m pytest -v;
-- capturas de tela legíveis e vídeo curto.
-Os arquivos de amostras/ são somente didáticos e não são evidência.
+- nmap_antes_127-0-0-1_tcp.xml e nmap_depois_127-0-0-1_tcp.xml;
+- entrega3_tabela_antes_127-0-0-1.csv/.md e entrega3_tabela_depois_127-0-0-1.csv/.md;
+- sshd_antes.txt e sshd_depois.txt (saída real de sshd -T);
+- entrega3_ssh_antes.txt e entrega3_ssh_depois.txt;
+- saída completa do pytest e dos dois comandos demo_e3;
+- capturas de tela e vídeo curto.
+Os arquivos da pasta amostras/ são exclusivamente didáticos e não substituem evidência real.
 
-AVISO SOBRE VALIDADE
-O escopo do arquivo de exemplo expira em 2026-12-02. Se executar a atividade após essa data, atualize o registro com autorização verdadeira e válida. Não altere datas apenas para contornar a validação.
+OBSERVAÇÕES
+- Nmap mostra o que está alcançável no loopback; Get-NetTCPConnection mostra os sockets em escuta no Windows.
+- Uma porta aberta não prova, isoladamente, que o serviço é vulnerável.
+- A auditoria do SSH usa a saída efetiva de sshd -T; a análise é didática e não substitui revisão manual.
+- Não execute a varredura para outros IPs: o código e o escopo foram restringidos a 127.0.0.1/32.
