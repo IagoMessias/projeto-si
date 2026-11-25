@@ -65,6 +65,7 @@ def etapa_escopo(escopo, alvo: str | None) -> bool:
     testar_alvo(escopo, "8.8.8.8")
     testar_alvo(escopo, "scanme.nmap.org")
     testar_alvo(escopo, "192.168.56.1; dir")
+    testar_alvo(escopo, "127.0.0.2")
     return testar_alvo(escopo, alvo) if alvo else True
 
 
@@ -119,15 +120,25 @@ def etapa_tabela(escopo, resultado, modo: str):
     return achados
 
 
-def etapa_ssh(sshd_config: str | None) -> dict:
+def etapa_ssh(sshd_config: str | None, rotulo: str) -> dict:
     titulo("4. AUDITORIA DO SSH (BOAS PRÁTICAS DE AUTENTICAÇÃO REMOTA)")
     if sshd_config:
         achados = ssh.auditar_arquivo(sshd_config)
         print(f"Arquivo analisado: {sshd_config}\n")
         print(ssh.tabela_texto(achados))
         r = ssh.resumo(achados)
-        print(f"\nResumo: {r['OK']} OK | {r['ATENÇÃO']} atenção | {r['FALHA']} falha(s)")
-        return {"depois": r}
+        resumo_texto = f"Resumo: {r['OK']} OK | {r['ATENÇÃO']} atenção | {r['FALHA']} falha(s)"
+        print(f"\n{resumo_texto}")
+        PASTA_EVIDENCIAS.mkdir(parents=True, exist_ok=True)
+        arquivo_saida = PASTA_EVIDENCIAS / f"entrega3_ssh_{rotulo}.txt"
+        arquivo_saida.write_text(
+            f"ENTREGA 3 - AUDITORIA SSH ({rotulo.upper()})\n"
+            f"Arquivo analisado: {sshd_config}\n\n"
+            f"{ssh.tabela_texto(achados)}\n\n{resumo_texto}\n",
+            encoding="utf-8",
+        )
+        print(f"Evidência SSH salva em: {arquivo_saida}")
+        return {rotulo: r}
     print("[AMOSTRA] Comparação entre uma configuração fraca e uma endurecida (dados de exemplo).")
     resumos = {}
     for rotulo, nome in (("antes", "sshd_config_inseguro.conf"),
@@ -151,8 +162,8 @@ def etapa_superficie(achados, resumos_ssh: dict) -> None:
         print(f"Portas abertas depois da proposta: {r['necessarias']} (redução de {r['desnecessarias']})")
     else:
         print("Nenhuma porta desnecessária encontrada.")
-    print("Demais medidas: firewall por origem para o SSH, autenticação por chave,")
-    print("PermitRootLogin no, AllowUsers e atualização dos serviços mantidos.")
+    print("Demais medidas: manter o OpenSSH vinculado a 127.0.0.1, preferir chaves,")
+    print("desativar autenticação por senha e encerrar o servidor HTTP extra (porta 8001).")
     if "antes" in resumos_ssh and "depois" in resumos_ssh:
         print(
             f"SSH (amostra): falhas {resumos_ssh['antes']['FALHA']} -> {resumos_ssh['depois']['FALHA']}, "
@@ -173,14 +184,14 @@ def executar(args) -> None:
     if resultado is None:
         return
     achados = etapa_tabela(escopo, resultado, modo)
-    resumos = etapa_ssh(args.sshd_config)
+    resumos = etapa_ssh(args.sshd_config, args.rotulo)
     etapa_superficie(achados, resumos)
     titulo("DEMONSTRAÇÃO DA ENTREGA 3 CONCLUÍDA (LOGIN ACEITO)")
 
 
 def ler_argumentos(argv=None):
     parser = argparse.ArgumentParser(description="Demonstração da Entrega 3 (varredura controlada).")
-    parser.add_argument("--alvo", help="IP da VM do laboratório (precisa estar em escopo_lab.json)")
+    parser.add_argument("--alvo", help="use somente 127.0.0.1 (loopback do próprio Windows)")
     parser.add_argument(
         "--portas",
         help="portas a varrer (subconjunto de escopo_lab.json), ex.: 22,80 ou 1-1024",
