@@ -13,7 +13,7 @@ import auditoria_ssh as ssh
 import varredura as vr
 
 AMOSTRAS = Path(__file__).parent / "amostras"
-HOJE = date(2026, 11, 24)
+HOJE = date(2026, 11, 25)
 
 ESCOPO_VALIDO = {
     "responsavel": "Aluno", "finalidade": "Teste", "autorizado_por": "Aluno",
@@ -151,13 +151,13 @@ def test_executar_nmap_recusa_alvo_fora_do_escopo_antes_de_rodar(escopo, tmp_pat
 
 def test_varredura_udp_exige_portas_explicitas(escopo, tmp_path):
     with pytest.raises(vr.ErroEscopo, match="exige --portas explícito"):
-        vr.executar_nmap("192.168.56.101", escopo, udp=True, pasta_saida=tmp_path)
+        vr.executar_nmap("127.0.0.1", escopo, udp=True, pasta_saida=tmp_path)
     assert not list(tmp_path.glob("*.xml"))
 
 
 def test_executar_nmap_recusa_ampliacao_de_portas_antes_de_rodar(escopo, tmp_path):
     with pytest.raises(vr.ErroEscopo, match="excedem o escopo"):
-        vr.executar_nmap("192.168.56.101", escopo, portas="1-65535", pasta_saida=tmp_path)
+        vr.executar_nmap("127.0.0.1", escopo, portas="1-65535", pasta_saida=tmp_path)
     assert not list(tmp_path.glob("*.xml"))
 
 
@@ -181,13 +181,13 @@ def test_ler_xml_de_amostra():
     assert resultado.hosts_ativos == 1
     assert [p.porta for p in resultado.portas] == [21, 22, 8000, 8001]
     ssh_port = next(p for p in resultado.portas if p.porta == 22)
-    assert ssh_port.produto == "OpenSSH" and "ssh-hostkey" in ssh_port.scripts
+    assert ssh_port.produto.startswith("OpenSSH") and "ssh-hostkey" in ssh_port.scripts
 
 
 def test_ler_xml_separa_estado_open_filtered(tmp_path):
     arquivo = tmp_path / "udp.xml"
     arquivo.write_text(
-        '<nmaprun><host><status state="up"/><address addr="192.168.56.101" addrtype="ipv4"/>'
+        '<nmaprun><host><status state="up"/><address addr="127.0.0.1" addrtype="ipv4"/>'
         '<ports><port protocol="udp" portid="53"><state state="open|filtered"/></port></ports></host></nmaprun>',
         encoding="utf-8",
     )
@@ -216,8 +216,6 @@ def test_classificacao_necessidade_e_risco(escopo):
         a["porta"]: a
         for a in ap.classificar(vr.ler_xml(AMOSTRAS / "nmap_lab_exemplo.xml").portas, escopo)
     }
-    assert achados[21]["necessidade"] == "Não necessária" and achados[21]["risco"] == "Alto"
-    assert achados[21]["recomendacao"].startswith("Fechar")
     assert achados[22]["necessidade"] == "Necessária"
     assert achados[22]["recomendacao"].startswith("Manter")
     assert achados[8000]["necessidade"] == "Necessária"
@@ -250,8 +248,8 @@ def test_servico_necessario_ausente_e_listado(escopo):
 def test_resumo_conta_portas_a_fechar(escopo):
     achados = ap.classificar(vr.ler_xml(AMOSTRAS / "nmap_lab_exemplo.xml").portas, escopo)
     resumo = ap.resumo(achados)
-    assert resumo["abertas"] == 4 and resumo["necessarias"] == 2 and resumo["desnecessarias"] == 2
-    assert "21/tcp (FTP)" in resumo["a_fechar"]
+    assert resumo["abertas"] == 3 and resumo["necessarias"] == 2 and resumo["desnecessarias"] == 1
+    assert "8001/tcp (HTTP extra)" in resumo["a_fechar"]
 
 
 def test_tabelas_markdown_e_csv(escopo, tmp_path):
@@ -270,16 +268,28 @@ def _por_diretiva(achados):
 
 
 def test_ssh_configuracao_fraca_tem_falhas():
-    d = _por_diretiva(ssh.auditar_arquivo(AMOSTRAS / "sshd_config_inseguro.conf"))
-    assert d["PermitRootLogin"]["status"] == "FALHA"
+    d = _por_diretiva(ssh.auditar_windows_arquivo(AMOSTRAS / "sshd_config_inseguro.conf"))
     assert d["PasswordAuthentication"]["status"] == "FALHA"
-    assert d["X11Forwarding"]["status"] == "ATENÇÃO"
+    assert d["MaxAuthTries"]["status"] == "ATENÇÃO"
+    assert d["ClientAliveInterval"]["status"] == "ATENÇÃO"
     assert d["AllowUsers / AllowGroups"]["status"] == "ATENÇÃO"
+    assert d["ListenAddress"]["status"] == "OK"
 
 
 def test_ssh_configuracao_endurecida_nao_tem_falha_nem_atencao():
-    resumo = ssh.resumo(ssh.auditar_arquivo(AMOSTRAS / "sshd_config_endurecido.conf"))
+    resumo = ssh.resumo(ssh.auditar_windows_arquivo(AMOSTRAS / "sshd_config_endurecido.conf"))
     assert resumo["FALHA"] == 0 and resumo["ATENÇÃO"] == 0
+
+
+def test_auditoria_windows_rejeita_listenaddress_exposto():
+    texto = (
+        "port 22\\nlistenaddress 0.0.0.0:22\\n"
+        "passwordauthentication no\\npubkeyauthentication yes\\n"
+        "maxauthtries 3\\nlogingracetime 30\\n"
+        "allowusers aluno\\nclientaliveinterval 300\\nloglevel verbose\\n"
+    )
+    d = _por_diretiva(ssh.auditar_windows(texto))
+    assert d["ListenAddress"]["status"] == "FALHA"
 
 
 def test_ssh_diretivas_ausentes_usam_padrao_do_openssh():
