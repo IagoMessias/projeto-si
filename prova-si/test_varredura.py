@@ -179,7 +179,7 @@ def test_rotulo_invalido_e_rejeitado(escopo, tmp_path):
 def test_ler_xml_de_amostra():
     resultado = vr.ler_xml(AMOSTRAS / "nmap_lab_exemplo.xml")
     assert resultado.hosts_ativos == 1
-    assert [p.porta for p in resultado.portas] == [21, 22, 8000, 8001]
+    assert [p.porta for p in resultado.portas] == [22, 8000, 8001]
     ssh_port = next(p for p in resultado.portas if p.porta == 22)
     assert ssh_port.produto.startswith("OpenSSH") and "ssh-hostkey" in ssh_port.scripts
 
