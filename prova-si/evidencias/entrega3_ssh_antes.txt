@@ -1,0 +1,17 @@
+ENTREGA 3 - AUDITORIA SSH (ANTES)
+Arquivo analisado: .\evidencias\sshd_antes.txt
+
+DIRETIVA                     | ATUAL                  | ESPERADO        | STATUS  
+-----------------------------+------------------------+-----------------+---------
+PasswordAuthentication       | yes                    | no              | FALHA   
+PubkeyAuthentication         | yes                    | yes             | OK      
+PermitEmptyPasswords         | no                     | no              | OK      
+MaxAuthTries                 | 6                      | 4 ou menos      | ATENÇÃO 
+LoginGraceTime               | 120                    | entre 1 e 60 s  | ATENÇÃO 
+AllowUsers / AllowGroups     | (não definido)         | definido        | ATENÇÃO 
+ClientAliveInterval          | 0                      | maior que 0     | ATENÇÃO 
+LogLevel                     | info                   | info ou verbose | OK      
+Port                         | 22                     | informativo     | INFO    
+ListenAddress                | 127.0.0.1:22           | somente 127.0.0 | OK      
+
+Resumo: 4 OK | 4 atenção | 1 falha(s)

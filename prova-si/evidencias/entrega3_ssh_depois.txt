@@ -1,0 +1,17 @@
+ENTREGA 3 - AUDITORIA SSH (DEPOIS)
+Arquivo analisado: .\evidencias\sshd_depois.txt
+
+DIRETIVA                     | ATUAL                  | ESPERADO        | STATUS  
+-----------------------------+------------------------+-----------------+---------
+PasswordAuthentication       | no                     | no              | OK      
+PubkeyAuthentication         | yes                    | yes             | OK      
+PermitEmptyPasswords         | no                     | no              | OK      
+MaxAuthTries                 | 3                      | 4 ou menos      | OK      
+LoginGraceTime               | 30                     | entre 1 e 60 s  | OK      
+AllowUsers / AllowGroups     | iago?messias           | definido        | OK      
+ClientAliveInterval          | 300                    | maior que 0     | OK      
+LogLevel                     | verbose                | info ou verbose | OK      
+Port                         | 22                     | informativo     | INFO    
+ListenAddress                | 127.0.0.1:22           | somente 127.0.0 | OK      
+
+Resumo: 9 OK | 0 atenção | 0 falha(s)
