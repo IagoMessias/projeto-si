@@ -1,17 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- AMOSTRA DIDATICA para testes e demonstração offline.
-     NÃO é evidência da varredura real: a evidência oficial vem da VM do laboratório. -->
-<nmaprun scanner="nmap" args="nmap -sT -sV -p 1-1024 --open -oX amostra.xml 192.168.56.101 (AMOSTRA)" start="1700000000" version="7.94">
-<host starttime="1700000000" endtime="1700000010"><status state="up" reason="syn-ack"/>
-<address addr="192.168.56.101" addrtype="ipv4"/>
+<!-- AMOSTRA DIDATICA: somente para testes e demonstração offline; não é evidência real. -->
+<nmaprun scanner="nmap" args="nmap -sT -sV -p 22,8000-8001 --open -Pn -oX amostra.xml 127.0.0.1 (AMOSTRA)" start="1795550000" version="7.98">
+<host starttime="1795550000" endtime="1795550010"><status state="up" reason="localhost-response"/>
+<address addr="127.0.0.1" addrtype="ipv4"/>
 <ports>
-<port protocol="tcp" portid="21"><state state="open" reason="syn-ack"/><service name="ftp" product="vsftpd" version="3.0.5" method="probed" conf="10"/></port>
-<port protocol="tcp" portid="22"><state state="open" reason="syn-ack"/><service name="ssh" product="OpenSSH" version="9.6p1 Ubuntu 3ubuntu13" extrainfo="Ubuntu Linux; protocol 2.0" method="probed" conf="10"/>
-<script id="ssh-hostkey" output="&#10;  256 aa:bb:cc:dd (ECDSA)&#10;  256 11:22:33:44 (ED25519)"/>
-<script id="ssh2-enum-algos" output="&#10;  kex_algorithms: (10)&#10;      curve25519-sha256&#10;  server_host_key_algorithms: (4)&#10;      ssh-ed25519"/></port>
-<port protocol="tcp" portid="80"><state state="open" reason="syn-ack"/><service name="http" product="Apache httpd" version="2.4.58" extrainfo="(Ubuntu)" method="probed" conf="10"/></port>
-<port protocol="tcp" portid="111"><state state="open" reason="syn-ack"/><service name="rpcbind" version="2-4" extrainfo="RPC #100000" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="21"><state state="open" reason="syn-ack"/><service name="ftp" product="servico de teste" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="22"><state state="open" reason="syn-ack"/><service name="ssh" product="OpenSSH_for_Windows" version="9.x" method="probed" conf="10"/>
+<script id="ssh-hostkey" output="  256 aa:bb:cc:dd (ED25519)"/>
+<script id="ssh2-enum-algos" output="  kex_algorithms: curve25519-sha256&#10;  server_host_key_algorithms: ssh-ed25519"/></port>
+<port protocol="tcp" portid="8000"><state state="open" reason="syn-ack"/><service name="http" product="Python SimpleHTTPServer" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="8001"><state state="open" reason="syn-ack"/><service name="http" product="Python SimpleHTTPServer" method="probed" conf="10"/></port>
 </ports>
 </host>
-<runstats><finished time="1700000010" summary="Nmap done: 1 IP address (1 host up) scanned"/></runstats>
+<runstats><finished time="1795550010" summary="Nmap done: 1 IP address (1 host up) scanned"/></runstats>
 </nmaprun>
