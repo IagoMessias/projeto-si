@@ -196,7 +196,7 @@ def auditar_windows(texto: str) -> list:
     achados = [a for a in auditar(texto) if a["diretiva"] in nomes_suportados]
 
     listen = cfg.get("listenaddress", [])
-    padrao_local = re.compile(r"^127\\.0\\.0\\.1(?::[0-9]{1,5})?$")
+    padrao_local = re.compile(r"^127\.0\.0\.1(?::[0-9]{1,5})?$")
     somente_loopback = bool(listen) and all(padrao_local.fullmatch(v.strip()) for v in listen)
     achados.append({
         "diretiva": "ListenAddress",
