@@ -2,128 +2,146 @@ LABORATÓRIO DA ENTREGA 3 - WINDOWS LOCAL (SEM MÁQUINA VIRTUAL)
 Projeto Integrador - Segurança da Informação - Unit
 
 OBJETIVO E LIMITE
-O laboratório usa somente o próprio computador Windows. A varredura é restrita a 127.0.0.1/32 (loopback) e às portas 22, 8000 e 8001. O programa rejeita qualquer outro IP. Não altere esse limite para examinar Wi-Fi, rede doméstica, rede da faculdade ou Internet.
+O laboratório usa somente o próprio computador Windows. A varredura é restrita a 127.0.0.1/32 (loopback) e às portas TCP 22, 8000 e 8001. O programa rejeita qualquer outro IP. Não altere esse limite para examinar Wi-Fi, rede doméstica, rede da faculdade ou Internet.
 
-1. PREPARAÇÃO DO PROJETO
+1. PREPARAR O PROJETO
 Abra PowerShell na pasta prova-si:
   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
   .\.venv\Scripts\Activate.ps1
   py -m pip install -r requirements.txt
-Confira o Nmap:
+Confira:
   nmap --version
-Cadastre usuário da demonstração, caso ainda não exista:
+Cadastre um usuário para a demonstração, caso ainda não exista:
   py app.py
-Escolha a opção 1 e depois 3 para sair.
+Escolha a opção 1 para cadastrar e 3 para sair.
 
-2. SERVIDOR SSH LOCAL (OPENSSH SERVER)
-A auditoria SSH usa o servidor OpenSSH opcional do próprio Windows. Abra PowerShell COMO ADMINISTRADOR:
+2. INSTALAR E CONFIGURAR OPENSSH SERVER DO WINDOWS
+Esta etapa é necessária para ter um serviço SSH real na porta 22. Abra PowerShell COMO ADMINISTRADOR:
   Get-WindowsCapability -Online | Where-Object Name -like 'OpenSSH.Server*'
-Se o estado for NotPresent:
+Se o estado estiver NotPresent:
   Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
-O arquivo de configuração do servidor fica em:
+Inicie o serviço uma vez para gerar o arquivo de configuração padrão:
+  Start-Service sshd
+O arquivo padrão fica em:
   $env:ProgramData\ssh\sshd_config
-Abra esse arquivo em um editor executado como Administrador. Na seção global (antes de qualquer bloco Match), confirme que existe:
+Faça uma cópia de segurança ANTES de editar:
+  Copy-Item "$env:ProgramData\ssh\sshd_config" "$env:ProgramData\ssh\sshd_config.entrega3.bak" -Force
+Abra o arquivo em um editor executado como Administrador:
+  notepad "$env:ProgramData\ssh\sshd_config"
+Na seção global (antes de qualquer bloco Match), adicione ou ajuste as diretivas abaixo. Não duplique diretivas existentes; edite os valores já presentes:
   Port 22
   ListenAddress 127.0.0.1
-Para a medição ANTES, use:
   PasswordAuthentication yes
   PubkeyAuthentication yes
   PermitEmptyPasswords no
-  PermitRootLogin yes
   MaxAuthTries 6
-  LoginGraceTime 120
-  X11Forwarding no
+  LoginGraceTime 2m
   ClientAliveInterval 0
   LogLevel INFO
-Não remova as demais configurações padrão do Windows. Não duplique diretivas: o OpenSSH usa o primeiro valor aplicável. A diretiva ListenAddress é essencial para o sshd escutar apenas no loopback, e não nas interfaces de rede.
-Valide a configuração:
+Deixe AllowUsers ausente nesta primeira medição. Preserve as demais configurações padrão do Windows.
+IMPORTANTE: a documentação da Microsoft informa que PermitRootLogin não se aplica ao OpenSSH para Windows e que KbdInteractiveAuthentication e X11Forwarding não são suportadas nessa versão. Por isso, o perfil Windows da auditoria não avalia essas diretivas. Não as adicione ao arquivo.
+Valide a sintaxe:
   & "$env:WINDIR\System32\OpenSSH\sshd.exe" -t
-Inicie o serviço:
-  Start-Service sshd
+Reinicie o serviço:
+  Restart-Service sshd
+Defina início manual para não alterar o comportamento de boot depois do laboratório:
   Set-Service -Name sshd -StartupType Manual
-Confirme o endereço de escuta:
+Confirme que a porta 22 escuta SOMENTE em 127.0.0.1:
   Get-NetTCPConnection -State Listen -LocalPort 22 | Format-Table LocalAddress,LocalPort
-O resultado deve mostrar somente 127.0.0.1. Se aparecer 0.0.0.0, :: ou outro IP, pare o serviço (Stop-Service sshd) e corrija ListenAddress antes de continuar.
-A instalação do OpenSSH pode criar uma regra de firewall de entrada. O vínculo do serviço a 127.0.0.1 é obrigatório; não altere ListenAddress para 0.0.0.0.
+Se aparecer 0.0.0.0, :: ou outro endereço, pare o serviço (Stop-Service sshd) e corrija ListenAddress antes de continuar. Não execute Nmap enquanto a escuta não estiver limitada a 127.0.0.1.
 
-3. INICIAR OS SERVIDORES HTTP DE TESTE
-Abra duas janelas separadas do PowerShell na pasta prova-si.
-Janela A - serviço necessário:
-  py -m http.server 8000 --bind 127.0.0.1
-Janela B - serviço adicional que será encerrado:
-  py -m http.server 8001 --bind 127.0.0.1
-Mantenha as duas janelas abertas durante a varredura ANTES. Os servidores Python servem apenas a pasta atual e aceitam conexões somente do próprio computador.
+3. INICIAR DOIS SERVIDORES HTTP TEMPORÁRIOS
+Abra duas janelas adicionais do PowerShell. Eles devem servir pastas temporárias fora do repositório e escutar somente no loopback.
+Janela A - serviço necessário (porta 8000):
+  $web = Join-Path $env:TEMP "E3-http-necessario"
+  New-Item -ItemType Directory -Force $web | Out-Null
+  Set-Content (Join-Path $web "index.html") "HTTP necessario do laboratorio"
+  py -m http.server 8000 --bind 127.0.0.1 --directory $web
+Janela B - serviço adicional que será removido (porta 8001):
+  $web = Join-Path $env:TEMP "E3-http-extra"
+  New-Item -ItemType Directory -Force $web | Out-Null
+  Set-Content (Join-Path $web "index.html") "HTTP extra do laboratorio"
+  py -m http.server 8001 --bind 127.0.0.1 --directory $web
+Mantenha as duas janelas abertas durante a varredura ANTES. Os servidores expõem somente essas pastas temporárias para o próprio computador; não servem a pasta do projeto.
 
-4. CONFERIR A AUTORIZAÇÃO
-Abra escopo_lab.json. Ele autoriza:
+4. CONFERIR O ESCOPO
+Abra escopo_lab.json. Ele registra:
 - Alvo único: 127.0.0.1/32.
-- Portas TCP: 22, 8000 e 8001.
-- Serviços necessários: SSH local (22/tcp) e HTTP de teste (8000/tcp).
-A porta 8001 é um serviço temporário extra, propositalmente não necessário. O arquivo contém responsável, finalidade, autorizador e validade. Se a autorização estiver expirada, não altere a data apenas para contornar a validação; registre uma autorização atual e verdadeira.
+- Portas TCP autorizadas: 22, 8000 e 8001.
+- Serviços necessários: OpenSSH local (22/tcp) e HTTP temporário (8000/tcp).
+- Porta extra: 8001/tcp, propositalmente não necessária e que será encerrada depois.
+O JSON registra responsável, finalidade, autorização e validade. A data deve representar a autorização real do laboratório. Se a autorização estiver expirada, obtenha/registre autorização válida; não altere datas apenas para contornar a validação.
 
-5. REGISTRAR A CONFIGURAÇÃO SSH ANTES
-No PowerShell (na pasta prova-si):
+5. CAPTURAR CONFIGURAÇÃO SSH ANTES
+No PowerShell, na pasta prova-si:
   New-Item -ItemType Directory -Force .\evidencias | Out-Null
   & "$env:WINDIR\System32\OpenSSH\sshd.exe" -T | Out-File -Encoding ascii .\evidencias\sshd_antes.txt
-O comando -T gera a configuração efetiva do OpenSSH Server. Se sshd.exe ou o serviço não estiver disponível, verifique a instalação do OpenSSH Server na etapa 2.
+A saída efetiva de sshd -T será usada pelo auditor. O serviço deve continuar vinculado exclusivamente a 127.0.0.1.
 
 6. VARREDURA ANTES
 Na pasta prova-si, com o ambiente virtual ativo:
   py demo_e3.py --alvo 127.0.0.1 --rotulo antes --sshd-config .\evidencias\sshd_antes.txt
-Informe seu usuário e senha cadastrados no app.py. O programa:
-- valida o JSON e confirma que o alvo é exatamente 127.0.0.1;
-- testa o bloqueio de endereços fora do escopo;
-- executa Nmap apenas nas portas 22, 8000 e 8001;
-- gera XML Nmap, tabela CSV/Markdown e relatório de auditoria SSH em evidencias/.
-Resultado inicial esperado: 22/tcp (SSH), 8000/tcp (HTTP) e 8001/tcp (HTTP extra) abertos, desde que os três serviços estejam ativos.
+Informe o usuário e a senha cadastrados por py app.py. A demonstração:
+- valida o arquivo JSON e confirma o alvo exato;
+- demonstra a rejeição de alvos que não pertencem ao escopo;
+- executa Nmap somente em 22, 8000 e 8001;
+- gera XML, tabelas CSV/Markdown e relatório de auditoria SSH em evidencias/.
+Resultado inicial esperado: 22/tcp (SSH), 8000/tcp (HTTP necessário) e 8001/tcp (HTTP extra) abertos, se os três serviços estiverem ativos.
 
-7. REDUÇÃO DA SUPERFÍCIE E ENDURECIMENTO
-a) Encerre o serviço HTTP extra: na janela B, pressione Ctrl+C. Mantenha o servidor da porta 8000 ativo.
-b) Volte ao editor Administrador e altere, na seção global do sshd_config:
+7. REDUZIR A SUPERFÍCIE E ENDURECER O SSH
+a) Na janela B do servidor HTTP extra, pressione Ctrl+C para encerrar a porta 8001. Mantenha o servidor 8000 ativo.
+b) Abra novamente o arquivo como Administrador:
+  notepad "$env:ProgramData\ssh\sshd_config"
+Na seção global, antes de qualquer bloco Match, mantenha Port 22 e ListenAddress 127.0.0.1 e ajuste:
   PasswordAuthentication no
   PubkeyAuthentication yes
   PermitEmptyPasswords no
-  PermitRootLogin no
   MaxAuthTries 3
   LoginGraceTime 30
-  X11Forwarding no
+  AllowUsers SEU_USUARIO_WINDOWS
   ClientAliveInterval 300
   LogLevel VERBOSE
-Mantenha:
-  Port 22
-  ListenAddress 127.0.0.1
-Ajuste os valores existentes em vez de duplicar diretivas. Esta atividade avalia a configuração; não é necessário permitir acesso SSH pela rede. O serviço continua limitado ao próprio computador.
-Valide antes de reiniciar:
+Substitua SEU_USUARIO_WINDOWS pelo nome de usuário real do Windows, em letras minúsculas. Consulte a parte final do comando whoami (depois da barra invertida) ou use $env:USERNAME para identificar a conta. Não deixe o texto de exemplo literalmente no arquivo. Edite as diretivas existentes em vez de duplicá-las.
+Observação: PasswordAuthentication no bloqueia login por senha no SSH. O exercício não exige entrar remotamente no servidor, mas se você utiliza OpenSSH para outras finalidades, certifique-se de não interromper esse uso. A configuração é local e foi copiada em backup na etapa 2.
+c) Valide e reinicie:
   & "$env:WINDIR\System32\OpenSSH\sshd.exe" -t
-Reinicie:
   Restart-Service sshd
-Confirme novamente que o serviço escuta somente em 127.0.0.1:
+d) Confirme novamente a escuta:
   Get-NetTCPConnection -State Listen -LocalPort 22 | Format-Table LocalAddress,LocalPort
+A saída deve continuar mostrando somente 127.0.0.1.
 
 8. CAPTURAR E RETESTAR DEPOIS
-Capture a configuração SSH:
+Capture a configuração efetiva:
   & "$env:WINDIR\System32\OpenSSH\sshd.exe" -T | Out-File -Encoding ascii .\evidencias\sshd_depois.txt
 Execute:
   py demo_e3.py --alvo 127.0.0.1 --rotulo depois --sshd-config .\evidencias\sshd_depois.txt
-Resultado esperado: 8001/tcp deixa de aparecer; 22/tcp e 8000/tcp permanecem. A auditoria SSH deve mostrar melhora em PasswordAuthentication, MaxAuthTries, LoginGraceTime, ClientAliveInterval e LogLevel.
+Resultado esperado: 8001/tcp deixa de aparecer; 22/tcp e 8000/tcp permanecem. A auditoria SSH deve indicar melhora em PasswordAuthentication, MaxAuthTries, LoginGraceTime, AllowUsers, ClientAliveInterval e ListenAddress.
 
-9. TESTES
+9. TESTES AUTOMATIZADOS
 Na pasta prova-si:
   py -m pytest -v
-Os testes automatizados verificam a restrição estrita ao loopback, o limite de portas, leitura de XML, classificação de riscos, geração de tabelas e auditoria SSH. O teste de integração Nmap cria um listener temporário em 127.0.0.1.
+Os testes verificam o escopo estrito de loopback, validação de portas, análise de XML, classificação de risco, geração de tabelas e auditoria específica do OpenSSH para Windows. O teste de integração Nmap abre temporariamente uma porta aleatória em 127.0.0.1.
 
 10. EVIDÊNCIAS
 Guardar em evidencias/:
 - nmap_antes_127-0-0-1_tcp.xml e nmap_depois_127-0-0-1_tcp.xml;
-- entrega3_tabela_antes_127-0-0-1.csv/.md e entrega3_tabela_depois_127-0-0-1.csv/.md;
+- tabelas entrega3_tabela_antes_127-0-0-1.csv/.md e entrega3_tabela_depois_127-0-0-1.csv/.md;
 - sshd_antes.txt e sshd_depois.txt (saída real de sshd -T);
 - entrega3_ssh_antes.txt e entrega3_ssh_depois.txt;
-- saída completa do pytest e dos dois comandos demo_e3;
+- saídas completas de pytest e dos dois comandos demo_e3;
 - capturas de tela e vídeo curto.
-Os arquivos da pasta amostras/ são exclusivamente didáticos e não substituem evidência real.
+Os arquivos da pasta amostras/ são somente didáticos e não substituem evidências reais.
+
+11. RESTAURAR O OPENSSH APÓS A ATIVIDADE
+Depois de gerar todas as evidências, se você não pretende manter a configuração didática, restaure o backup:
+  Copy-Item "$env:ProgramData\ssh\sshd_config.entrega3.bak" "$env:ProgramData\ssh\sshd_config" -Force
+  Restart-Service sshd
+Se o OpenSSH Server não existia antes e foi instalado apenas para o laboratório, você pode parar o serviço ao terminar:
+  Stop-Service sshd
+Não remova o backup até confirmar que o serviço voltou ao estado desejado.
 
 OBSERVAÇÕES
-- Nmap mostra o que está alcançável no loopback; Get-NetTCPConnection mostra os sockets em escuta no Windows.
-- Uma porta aberta não prova, isoladamente, que o serviço é vulnerável.
-- A auditoria do SSH usa a saída efetiva de sshd -T; a análise é didática e não substitui revisão manual.
-- Não execute a varredura para outros IPs: o código e o escopo foram restringidos a 127.0.0.1/32.
+- Nmap mostra o que está acessível no loopback; Get-NetTCPConnection mostra os sockets locais em escuta.
+- Porta aberta não prova, por si só, que um serviço seja vulnerável.
+- O projeto restringe o Nmap a 127.0.0.1/32 e às portas presentes no JSON.
+- O laboratório serve para fins didáticos e não é ferramenta de monitoramento/auditoria profissional.
