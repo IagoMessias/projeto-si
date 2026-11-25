@@ -283,10 +283,10 @@ def test_ssh_configuracao_endurecida_nao_tem_falha_nem_atencao():
 
 def test_auditoria_windows_rejeita_listenaddress_exposto():
     texto = (
-        "port 22\\nlistenaddress 0.0.0.0:22\\n"
-        "passwordauthentication no\\npubkeyauthentication yes\\n"
-        "maxauthtries 3\\nlogingracetime 30\\n"
-        "allowusers aluno\\nclientaliveinterval 300\\nloglevel verbose\\n"
+        "port 22\nlistenaddress 0.0.0.0:22\n"
+        "passwordauthentication no\npubkeyauthentication yes\n"
+        "maxauthtries 3\nlogingracetime 30\n"
+        "allowusers aluno\nclientaliveinterval 300\nloglevel verbose\n"
     )
     d = _por_diretiva(ssh.auditar_windows(texto))
     assert d["ListenAddress"]["status"] == "FALHA"
