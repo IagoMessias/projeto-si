@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- AMOSTRA DIDATICA: somente para testes e demonstração offline; não é evidência real. -->
+<!-- AMOSTRA DIDATICA: somente testes e demonstração offline; não é evidência real. -->
 <nmaprun scanner="nmap" args="nmap -sT -sV -p 22,8000-8001 --open -Pn -oX amostra.xml 127.0.0.1 (AMOSTRA)" start="1795550000" version="7.98">
 <host starttime="1795550000" endtime="1795550010"><status state="up" reason="localhost-response"/>
 <address addr="127.0.0.1" addrtype="ipv4"/>
 <ports>
-<port protocol="tcp" portid="21"><state state="open" reason="syn-ack"/><service name="ftp" product="servico de teste" method="probed" conf="10"/></port>
 <port protocol="tcp" portid="22"><state state="open" reason="syn-ack"/><service name="ssh" product="OpenSSH_for_Windows" version="9.x" method="probed" conf="10"/>
 <script id="ssh-hostkey" output="  256 aa:bb:cc:dd (ED25519)"/>
 <script id="ssh2-enum-algos" output="  kex_algorithms: curve25519-sha256&#10;  server_host_key_algorithms: ssh-ed25519"/></port>
