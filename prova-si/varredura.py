@@ -2,7 +2,7 @@
 
 Regras de segurança deste módulo:
 * só varre um alvo que esteja no escopo registrado em escopo_lab.json;
-* o escopo só aceita redes IPv4 PRIVADAS e pequenas (laboratório local);
+* o escopo só aceita exatamente o loopback 127.0.0.1/32 do próprio Windows;
 * o alvo é um único endereço IP (nada de nomes de host nem faixas);
 * o Nmap é chamado sem shell, com uma lista de argumentos já validados.
 """
@@ -26,12 +26,8 @@ CAMINHOS_NMAP_WINDOWS = (
 )
 SCRIPTS_SSH = "ssh2-enum-algos,ssh-hostkey"
 PREFIXO_MINIMO_IPV4 = 24
-REDES_PRIVADAS_LAB = (
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("127.0.0.0/8"),  # loopback: apenas para o teste local automatizado
-)
+IP_LOCAL_LAB = ipaddress.ip_address("127.0.0.1")
+REDES_PERMITIDAS_LAB = (ipaddress.ip_network("127.0.0.1/32"),)
 TIMEOUT_NMAP = 900
 CAMPOS_OBRIGATORIOS = (
     "responsavel", "finalidade", "autorizado_por", "data_autorizacao",
@@ -166,8 +162,8 @@ def carregar_escopo(caminho=ESCOPO_PADRAO, hoje: date | None = None) -> Escopo:
             raise ErroEscopo(f"Rede inválida no escopo: {texto!r}")
         if rede.version != 4:
             raise ErroEscopo("Apenas redes IPv4 são aceitas neste laboratório.")
-        if not any(rede.subnet_of(privada) for privada in REDES_PRIVADAS_LAB):
-            raise ErroEscopo(f"Rede fora das faixas privadas RFC 1918 ou loopback de teste ({rede}).")
+        if not any(rede.subnet_of(privada) for privada in REDES_PERMITIDAS_LAB):
+            raise ErroEscopo(f"Rede fora do escopo local exclusivo 127.0.0.1/32 ({rede}).")
         if rede.prefixlen < PREFIXO_MINIMO_IPV4:
             raise ErroEscopo(
                 f"Rede grande demais ({rede}): use prefixo /{PREFIXO_MINIMO_IPV4} ou mais específico."
@@ -205,6 +201,8 @@ def validar_alvo(alvo: str, escopo: Escopo):
         raise ErroEscopo("Alvo inválido: informe um único endereço IP (nomes de host e faixas não são aceitos).")
     if ip.version != 4:
         raise ErroEscopo("Apenas alvos IPv4 são aceitos neste laboratório.")
+    if ip != IP_LOCAL_LAB:
+        raise ErroEscopo("Este laboratório permite somente 127.0.0.1 (loopback do próprio computador).")
     if not any(ip in rede for rede in escopo.redes):
         redes = ", ".join(str(r) for r in escopo.redes)
         raise ErroEscopo(f"Alvo {ip} fora do escopo autorizado ({redes}).")
@@ -254,7 +252,7 @@ def executar_nmap(alvo: str, escopo: Escopo, portas: str | None = None, udp: boo
     pasta = Path(pasta_saida)
     pasta.mkdir(parents=True, exist_ok=True)
     xml = pasta / f"nmap_{rotulo}_{str(ip).replace('.', '-')}_{'udp' if udp else 'tcp'}.xml"
-    cmd = montar_comando(ip, portas_efetivas, xml, nmap=nmap, udp=udp)
+    cmd = montar_comando(ip, portas_efetivas, xml, nmap=nmap, udp=udp, sem_ping=True)
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT_NMAP, check=False)
     except subprocess.TimeoutExpired:
