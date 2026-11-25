@@ -16,7 +16,11 @@ Cadastre um usuário para a demonstração, caso ainda não exista:
 Escolha a opção 1 para cadastrar e 3 para sair.
 
 2. INSTALAR E CONFIGURAR OPENSSH SERVER DO WINDOWS
-Esta etapa é necessária para ter um serviço SSH real na porta 22. Abra PowerShell COMO ADMINISTRADOR:
+Esta etapa é necessária para ter um serviço SSH real na porta 22. Antes de alterar qualquer configuração, abra PowerShell COMO ADMINISTRADOR e confira se a porta já está sendo usada:
+  Get-Service sshd -ErrorAction SilentlyContinue
+  Get-NetTCPConnection -State Listen -LocalPort 22 -ErrorAction SilentlyContinue | Format-Table LocalAddress,LocalPort,OwningProcess
+Se o serviço sshd já estiver em execução ou a porta 22 estiver ocupada, não encerre processos desconhecidos nem altere a configuração existente. Pare e peça orientação antes de prosseguir.
+Se a porta estiver livre, confira o recurso OpenSSH Server:
   Get-WindowsCapability -Online | Where-Object Name -like 'OpenSSH.Server*'
 Se o estado estiver NotPresent:
   Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
@@ -46,8 +50,8 @@ Reinicie o serviço:
   Restart-Service sshd
 Defina início manual para não alterar o comportamento de boot depois do laboratório:
   Set-Service -Name sshd -StartupType Manual
-Confirme que a porta 22 escuta SOMENTE em 127.0.0.1:
-  Get-NetTCPConnection -State Listen -LocalPort 22 | Format-Table LocalAddress,LocalPort
+Confirme que a porta 22 escuta SOMENTE em 127.0.0.1 e salve a verificação:
+  Get-NetTCPConnection -State Listen -LocalPort 22 | Format-Table LocalAddress,LocalPort | Out-File -Encoding utf8 .\evidencias\ssh_listen_antes.txt
 Se aparecer 0.0.0.0, :: ou outro endereço, pare o serviço (Stop-Service sshd) e corrija ListenAddress antes de continuar. Não execute Nmap enquanto a escuta não estiver limitada a 127.0.0.1.
 
 3. INICIAR DOIS SERVIDORES HTTP TEMPORÁRIOS
@@ -80,7 +84,7 @@ A saída efetiva de sshd -T será usada pelo auditor. O serviço deve continuar 
 
 6. VARREDURA ANTES
 Na pasta prova-si, com o ambiente virtual ativo:
-  py demo_e3.py --alvo 127.0.0.1 --rotulo antes --sshd-config .\evidencias\sshd_antes.txt
+  py demo_e3.py --alvo 127.0.0.1 --rotulo antes --sshd-config .\evidencias\sshd_antes.txt | Tee-Object .\evidencias\entrega3_demo_antes.txt
 Informe o usuário e a senha cadastrados por py app.py. A demonstração:
 - valida o arquivo JSON e confirma o alvo exato;
 - demonstra a rejeição de alvos que não pertencem ao escopo;
@@ -106,20 +110,20 @@ Observação: PasswordAuthentication no bloqueia login por senha no SSH. O exerc
 c) Valide e reinicie:
   & "$env:WINDIR\System32\OpenSSH\sshd.exe" -t
   Restart-Service sshd
-d) Confirme novamente a escuta:
-  Get-NetTCPConnection -State Listen -LocalPort 22 | Format-Table LocalAddress,LocalPort
+d) Confirme novamente a escuta e salve a verificação:
+  Get-NetTCPConnection -State Listen -LocalPort 22 | Format-Table LocalAddress,LocalPort | Out-File -Encoding utf8 .\evidencias\ssh_listen_depois.txt
 A saída deve continuar mostrando somente 127.0.0.1.
 
 8. CAPTURAR E RETESTAR DEPOIS
 Capture a configuração efetiva:
   & "$env:WINDIR\System32\OpenSSH\sshd.exe" -T | Out-File -Encoding ascii .\evidencias\sshd_depois.txt
 Execute:
-  py demo_e3.py --alvo 127.0.0.1 --rotulo depois --sshd-config .\evidencias\sshd_depois.txt
+  py demo_e3.py --alvo 127.0.0.1 --rotulo depois --sshd-config .\evidencias\sshd_depois.txt | Tee-Object .\evidencias\entrega3_demo_depois.txt
 Resultado esperado: 8001/tcp deixa de aparecer; 22/tcp e 8000/tcp permanecem. A auditoria SSH deve indicar melhora em PasswordAuthentication, MaxAuthTries, LoginGraceTime, AllowUsers, ClientAliveInterval e ListenAddress.
 
 9. TESTES AUTOMATIZADOS
 Na pasta prova-si:
-  py -m pytest -v
+  py -m pytest -v | Tee-Object .\evidencias\entrega3_testes.txt
 Os testes verificam o escopo estrito de loopback, validação de portas, análise de XML, classificação de risco, geração de tabelas e auditoria específica do OpenSSH para Windows. O teste de integração Nmap abre temporariamente uma porta aleatória em 127.0.0.1.
 
 10. EVIDÊNCIAS
@@ -129,6 +133,7 @@ Guardar em evidencias/:
 - sshd_antes.txt e sshd_depois.txt (saída real de sshd -T);
 - entrega3_ssh_antes.txt e entrega3_ssh_depois.txt;
 - saídas completas de pytest e dos dois comandos demo_e3;
+- ssh_listen_antes.txt e ssh_listen_depois.txt para comprovar que o SSH escutou somente em 127.0.0.1;
 - capturas de tela e vídeo curto.
 Os arquivos da pasta amostras/ são somente didáticos e não substituem evidências reais.
 
