@@ -229,7 +229,7 @@ def test_servico_desnecessario_nunca_fica_com_risco_baixo():
 
 
 def test_servico_desconhecido_tem_risco_medio(escopo):
-    porta = vr.PortaAberta(host="192.168.56.101", porta=9999, protocolo="tcp", estado="open", servico="abc")
+    porta = vr.PortaAberta(host="127.0.0.1", porta=9999, protocolo="tcp", estado="open", servico="abc")
     achado = ap.classificar([porta], escopo)[0]
     assert achado["risco"] == "Médio" and "não catalogado" in achado["descricao_risco"]
 
@@ -259,7 +259,7 @@ def test_tabelas_markdown_e_csv(escopo, tmp_path):
     )
     csv_ = ap.salvar_csv(achados, tmp_path / "t.csv")
     assert csv_.read_text(encoding="utf-8-sig").splitlines()[0].startswith("porta,protocolo,servico")
-    assert "21/tcp" in ap.tabela_texto(achados)
+    assert "8001/tcp" in ap.tabela_texto(achados)
 
 
 # Auditoria SSH
